@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.17.0
+
+- In **Sign → Digital signature (certificate)**, sign a PDF with your .p12 or .pfx certificate, such as the ones issued in Ecuador. Drag the stamp where you want it on the page; it shows a QR code with the signer, issuer, and date. The signed copy is saved as a new file.
+- Folio can remember the certificates you've used, so next time you just pick one and enter its password. Passwords are never saved.
+- This build comes from the Jaimendo99/folio fork and is released for Windows and macOS.
+
 ## 1.16.1
 
 - In **Pages**, Ctrl-click thumbnails (⌘-click on macOS) to select pages, or Shift-click for a range. Right-click a selected thumbnail to save those pages as a new PDF.
