@@ -641,6 +641,48 @@ try {
     await page.keyboard.press("ControlOrMeta+w");
     await page.locator(".freeTextEditor", { hasText: "Saved text box" }).waitFor({ timeout: 15_000 });
     console.log("ok  signed digitally with a .p12 certificate");
+
+    // Choosing a detected empty signature field signs that field rather than adding another one.
+    const { PDFDocument, PDFName, PDFString } = require("pdf-lib");
+    const formDoc = await PDFDocument.create();
+    const formPage = formDoc.addPage([612, 792]);
+    const helvetica = await formDoc.embedFont("Helvetica");
+    formPage.drawText("Applicant signature:", { x: 72, y: 160, size: 12, font: helvetica });
+    const widget = formDoc.context.register(formDoc.context.obj({ Type: "Annot", Subtype: "Widget", FT: "Sig",
+      T: PDFString.of("ApplicantSignature"), Rect: [72, 60, 300, 140], F: 4, P: formPage.ref }));
+    formPage.node.set(PDFName.of("Annots"), formDoc.context.obj([widget]));
+    formDoc.getForm().acroForm.dict.set(PDFName.of("Fields"), formDoc.context.obj([widget]));
+    const formBytes = await formDoc.save();
+    const fieldSignedPath = path.join(env.FOLIO_TEST_USER_DATA, "field-signed.pdf");
+    await app.evaluate(({ dialog, BrowserWindow }, { files, data }) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [files.p12] });
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: files.fieldSignedPath });
+      BrowserWindow.getAllWindows()[0].webContents.send("folio:open-file", { name: "Application.pdf", data: Buffer.from(data) });
+    }, { files: { p12, fieldSignedPath }, data: [...formBytes] });
+    await page.window.waitForFunction(() => document.title.startsWith("Application.pdf"), null, { timeout: 15_000 });
+    await page.getByText("Signature field detected").waitFor({ timeout: 15_000 });
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Sign digitally" }).click();
+    await signDialog.getByRole("button", { name: "Choose certificate" }).click();
+    await signDialog.getByLabel("Password").fill("smoke");
+    await signDialog.getByRole("button", { name: "Open certificate" }).click();
+    await signDialog.getByLabel("Stamp position").selectOption({ label: "ApplicantSignature" });
+    await signDialog.getByRole("button", { name: "Sign and save" }).click();
+    await page.window.waitForFunction(() => document.title.startsWith("field-signed.pdf"), null, { timeout: 30_000 });
+    const fieldSigned = await PDFDocument.load(readFileSync(fieldSignedPath));
+    const fields = fieldSigned.getForm().getFields();
+    assert.deepEqual(fields.map(field => field.getName()), ["ApplicantSignature"]);
+    assert.ok(fields[0].acroField.dict.has(PDFName.of("V")), "the chosen field holds the signature");
+    // Close both new tabs once each has rendered, whichever one becomes active first.
+    for (let open = 2; open > 0; open--) {
+      await page.window.waitForFunction(() => /^(field-signed|Application)\.pdf/.test(document.title), null, { timeout: 15_000 });
+      await page.locator(".textLayer span:not(.markedContent)").first().waitFor({ timeout: 30_000 });
+      const closing = (await page.window.title()).split(" ")[0];
+      await page.keyboard.press("ControlOrMeta+w");
+      await page.window.waitForFunction(name => !document.title.startsWith(name), closing, { timeout: 15_000 });
+    }
+    await page.locator(".freeTextEditor", { hasText: "Saved text box" }).waitFor({ timeout: 15_000 });
+    console.log("ok  signed digitally into an existing signature field");
   }
 
   await page.waitForTimeout(500);

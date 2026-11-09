@@ -58,7 +58,7 @@ interface FolioSigning {
   readCertificate(id: string, password: string): Promise<CertificateInfo | { error: string }>;
   forget(): Promise<boolean>;
   /** Signs, asks where to save the copy, and returns it; null when the user cancels saving. */
-  sign(request: { id: string; password: string; pdf: Uint8Array; page: number; rect?: number[]; reason: string; location: string; name: string }):
+  sign(request: { id: string; password: string; pdf: Uint8Array; page: number; rect?: number[]; field?: string; reason: string; location: string; name: string }):
     Promise<{ name: string; data: Uint8Array } | { error: string } | null>;
 }
 

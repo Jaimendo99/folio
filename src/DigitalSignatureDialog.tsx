@@ -3,7 +3,11 @@ import { Modal } from "./Dialogs";
 import { Icon } from "./icons";
 import type { SignatureTarget } from "./signatures";
 
-export interface DigitalSignRequest { id: string; password: string; reason: string; location: string; rect?: number[] }
+export interface DigitalSignRequest {
+  id: string; password: string; reason: string; location: string; rect?: number[];
+  /** Full name of the empty signature field to sign; without it a new field goes at `rect`. */
+  field?: string;
+}
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
@@ -47,7 +51,9 @@ export function DigitalSignatureDialog({ pageNumber, targets, onSign, onClose }:
     if (!file || !info || busy) return;
     setBusy(true); setError("");
     try {
-      const message = await onSign({ id: file.id, password, reason, location, rect: targets.find(target => target.id === targetId)?.rect });
+      const target = targets.find(item => item.id === targetId);
+      const message = await onSign({ id: file.id, password, reason, location, rect: target?.rect,
+        field: target?.kind === "field" ? target.fieldName : undefined });
       if (message) setError(message); else onClose();
     } finally { setBusy(false); }
   };

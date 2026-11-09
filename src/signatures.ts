@@ -3,7 +3,11 @@ import type { PDFDocumentProxy } from "./pdf";
 import type { PDFViewer } from "./viewer";
 
 export interface SignatureImage { url: string; width: number; height: number }
-export interface SignatureTarget { id: string; label: string; rect: number[]; kind: "field" | "label" }
+export interface SignatureTarget {
+  id: string; label: string; rect: number[]; kind: "field" | "label";
+  /** For a detected field: its full name, so a digital signature can fill that field. */
+  fieldName?: string;
+}
 const cache = new WeakMap<PDFDocumentProxy, Map<number, Promise<SignatureTarget[]>>>();
 
 export function detectSignatureTargets(pdf: PDFDocumentProxy, pageNumber: number) {
@@ -20,6 +24,7 @@ export function detectSignatureTargets(pdf: PDFDocumentProxy, pageNumber: number
         && annotation.fieldType === "Sig" && !annotation.fieldValue && !(annotation.fieldFlags & 1)
         && !(annotation.annotationFlags & 35) && annotation.rect.length === 4 && annotation.rect.every(Number.isFinite))
         .map((annotation): SignatureTarget => ({ id: annotation.id, label: annotation.alternativeText || annotation.fieldName || "Signature field",
+          fieldName: typeof annotation.fieldName === "string" && annotation.fieldName ? annotation.fieldName : undefined,
           rect: [Math.max(page.view[0], annotation.rect[0]), Math.max(page.view[1], annotation.rect[1]),
             Math.min(page.view[2], annotation.rect[2]), Math.min(page.view[3], annotation.rect[3])], kind: "field" }))
         .filter(target => target.rect[2] - target.rect[0] > 4 && target.rect[3] - target.rect[1] > 4);

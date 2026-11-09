@@ -554,10 +554,14 @@ function registerDigitalSigning(handle) {
   }));
   handle("folio:signing-forget", () => { certificate = null; return true; });
   handle("folio:signing-sign", (_event, request) => result(async () => {
-    const { id, password, pdf, page, rect, reason, location, name } = request ?? {};
+    const { id, password, pdf, page, rect, field, reason, location, name } = request ?? {};
     if (typeof password !== "string") throw new signing().CertificateError("Enter the certificate's password.");
+    // A field name from the page only picks an existing, unsigned signature field; signPdf checks that it is one.
+    if (field !== undefined && (typeof field !== "string" || !field || field.length > signing().MAX_FIELD_NAME || /[\u0000-\u001f]/.test(field))) {
+      throw new signing().CertificateError("That signature field isn't valid. Choose another stamp position.");
+    }
     if (!(pdf instanceof Uint8Array) || pdf.length > MAX_DOCUMENT_BYTES) throw new signing().CertificateError("This document is too large to sign.");
-    const signed = await signing().signPdf(pdf, { p12: chosen(id).data, password, page, rect,
+    const signed = await signing().signPdf(pdf, { p12: chosen(id).data, password, page, rect, field,
       reason: typeof reason === "string" ? reason : "", location: typeof location === "string" ? location : "" });
     const suggested = safePdfName(String(typeof name === "string" ? name : "").replace(/\.pdf$/i, "") + "-firmado", "documento-firmado.pdf");
     const target = await dialog.showSaveDialog(win, { title: "Save signed copy", defaultPath: path.join(app.getPath("documents"), suggested),
