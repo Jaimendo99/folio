@@ -1,13 +1,15 @@
-# Builds the installers for every platform when a version tag is pushed (scripts/release.mjs does that),
+# Builds the Windows and macOS installers when a version tag is pushed (scripts/release.mjs does that),
 # checks that each packaged app starts, and hands the files to the release script as artifacts.
-# Nothing is published from here: the maintainer's release script downloads these and creates the release.
+# Nothing is published from here: the maintainer's release script downloads these and creates the release on this
+# same repository with the maintainer's own gh login, so this workflow only needs read access.
+# This fork doesn't build Linux packages.
 #
 # Signing is automatic once its secrets exist (see SIGNING.md):
 #   macOS:   MAC_CERTIFICATE_P12_BASE64, MAC_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
 #   Windows: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_SIGNING_ENDPOINT, AZURE_SIGNING_ACCOUNT,
 #            AZURE_SIGNING_PROFILE, AZURE_SIGNING_PUBLISHER
-#   Linux:   APT_SIGNING_KEY (signs the apt repository published with each release)
-# Without them, macOS builds are ad-hoc signed and Windows builds are unsigned.
+# Without them (the default for this fork), macOS builds are ad-hoc signed and only announce updates, and Windows
+# builds are unsigned.
 name: Release build
 
 on:
@@ -146,41 +148,3 @@ jobs:
             release/Folio-mac.zip
             release/Folio-mac.zip.blockmap
             release/latest-mac.yml
-
-  linux:
-    needs: verify
-    environment: release-linux
-    runs-on: ubuntu-latest
-    steps:
-      - *checkout
-      - *setup-node
-      - *install
-      - *build
-      - name: Package Linux
-        run: |
-          npx electron-builder --linux AppImage deb --publish never
-          sudo apt-get install -y -qq dpkg-dev apt-utils > /dev/null
-      - name: Signed apt repository (Linux)
-        env:
-          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
-        run: bash scripts/apt-repo.sh
-      - name: Packaged app starts (Linux)
-        run: |
-          xvfb-run -a release/linux-unpacked/folio --no-sandbox > app.log 2>&1 &
-          sleep 20
-          if ! pgrep -f linux-unpacked/folio > /dev/null; then cat app.log; exit 1; fi
-          pkill -f linux-unpacked/folio
-      - uses: actions/upload-artifact@v7
-        with:
-          name: folio-linux
-          overwrite: true
-          if-no-files-found: error
-          path: |
-            release/Folio-linux-x86_64.AppImage
-            release/Folio-linux-amd64.deb
-            release/latest-linux.yml
-            release/Packages
-            release/Packages.gz
-            release/Release
-            release/InRelease
-            release/Release.gpg

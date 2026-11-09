@@ -51,7 +51,7 @@ const TITLEBAR = {
 
 const IS_MAC = process.platform === "darwin";
 const IS_LINUX = process.platform === "linux";
-const RELEASES_PAGE = "https://github.com/Forward-Future/folio-releases/releases/latest";
+const RELEASES_PAGE = "https://github.com/Jaimendo99/folio/releases/latest";
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
@@ -125,7 +125,7 @@ function logConvert(msg) {
 }
 
 // ── Auto-update ──────────────────────────────────────────────────────
-// Installed copies check GitHub Releases (Forward-Future/folio-releases, see "publish" in package.json)
+// Installed copies check GitHub Releases (Jaimendo99/folio, see "publish" in package.json)
 // on launch and every few hours, download new versions in the background, and install them on quit
 // or when the user clicks "Restart" in the update banner. Progress is shown on the home screen and
 // logged to update.log in the app's user-data folder.

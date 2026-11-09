@@ -1,5 +1,5 @@
-# Daily safety net: makes sure the latest release carries every platform's installers and that all update
-# feeds (Windows, macOS, Linux AppImage, apt) offer the same version. Opens an issue if anything is off.
+# Daily safety net: makes sure the latest release carries the Windows and macOS installers and that both update
+# feeds (latest.yml, latest-mac.yml) offer the same version. Opens an issue if anything is off.
 name: Release check
 
 on:

@@ -1,5 +1,5 @@
-// Checks that a published Folio release is complete for every platform: all installers are attached, and every
-// update feed (Windows, macOS, Linux AppImage, and the apt repository) offers that same version.
+// Checks that a published Folio release is complete for every platform this fork ships (Windows and macOS): all
+// installers are attached, and every update feed (latest.yml, latest-mac.yml) offers that same version.
 //
 //   node scripts/check-release.mjs            # the latest release
 //   node scripts/check-release.mjs v1.9.0     # a specific tag
@@ -8,7 +8,8 @@
 // publishing and by the daily "Release check" workflow.
 import { pathToFileURL } from "node:url";
 
-export const RELEASES_REPO = "Forward-Future/folio-releases";
+// Releases are published on the source repository itself (see "publish" in package.json).
+export const RELEASES_REPO = "Jaimendo99/folio";
 
 /** The files produced by each release job, and the update feeds whose versions must match the release. */
 export const RELEASE_ARTIFACTS = {
@@ -19,10 +20,6 @@ export const RELEASE_ARTIFACTS = {
   "folio-macos": [
     { name: "Folio-mac.dmg" }, { name: "Folio-mac.dmg.blockmap" }, { name: "Folio-mac.zip" },
     { name: "Folio-mac.zip.blockmap" }, { name: "latest-mac.yml", feed: "yaml" },
-  ],
-  "folio-linux": [
-    { name: "Folio-linux-x86_64.AppImage" }, { name: "Folio-linux-amd64.deb" }, { name: "latest-linux.yml", feed: "yaml" },
-    { name: "Packages", feed: "apt" }, { name: "Packages.gz" }, { name: "Release" }, { name: "InRelease" }, { name: "Release.gpg" },
   ],
 };
 export const REQUIRED_ASSETS = Object.values(RELEASE_ARTIFACTS).flat();
@@ -48,7 +45,7 @@ export async function checkRelease(tag = "latest") {
     }
     if (!required.feed) continue;
     const text = await (await fetch(asset.browser_download_url, { headers: { "User-Agent": headers["User-Agent"] } })).text();
-    const found = required.feed === "yaml" ? /^version:\s*(\S+)/m.exec(text)?.[1] : /^Version:\s*(\S+)/m.exec(text)?.[1];
+    const found = /^version:\s*(\S+)/m.exec(text)?.[1];
     if (found !== version) problems.push(`${required.name} offers version ${found ?? "(none)"}, not ${version}.`);
   }
   return { tag: release.tag_name, problems };

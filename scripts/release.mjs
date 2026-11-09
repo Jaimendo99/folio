@@ -1,8 +1,8 @@
-// Publish a new Folio version for Windows, macOS, and Linux:
-//   1. bump the version and tag it, then push the source and tag to Forward-Future/folio;
+// Publish a new Folio version for Windows and macOS (this fork doesn't ship Linux builds):
+//   1. bump the version and tag it, then push the source and tag to Jaimendo99/folio (the "origin" remote);
 //   2. the "Release build" workflow (.github/workflows/release-build.yml) builds and checks the installers
 //      for every platform on GitHub Actions;
-//   3. this script downloads them and publishes a release on Forward-Future/folio-releases.
+//   3. this script downloads them and publishes a release on Jaimendo99/folio itself.
 // Installed copies pick the update up automatically (electron-updater reads latest*.yml from the release).
 //
 //   npm run release                      # 1.0.0 -> 1.0.1
@@ -97,8 +97,7 @@ const body = [
   "",
   "## Download",
   "- **Windows:** **Folio-Setup.exe** (updates itself), or **Folio-Portable.exe** to run without installing.",
-  "- **macOS:** **Folio-mac.dmg** (Apple Silicon and Intel). Developer ID builds update automatically. For ad-hoc builds, see the first-launch instructions in the [README](https://github.com/Forward-Future/folio#download).",
-  "- **Linux:** **Folio-linux-amd64.deb** for Ubuntu/Debian (after that, updates arrive with your system updates), or **Folio-linux-x86_64.AppImage** (updates itself) for other distributions.",
+  "- **macOS:** **Folio-mac.dmg** (Apple Silicon and Intel). Developer ID builds update automatically. For ad-hoc builds, see the first-launch instructions in the [README](https://github.com/Jaimendo99/folio#download).",
 ].join("\n");
 const folder = mkdtempSync(path.join(tmpdir(), "folio-release-"));
 try {
@@ -120,5 +119,5 @@ if (problems.length) {
   process.exit(1);
 }
 
-console.log(`\nFolio ${version} is live for Windows, macOS, and Linux: https://github.com/${RELEASES_REPO}/releases/tag/${tag}`);
+console.log(`\nFolio ${version} is live for Windows and macOS: https://github.com/${RELEASES_REPO}/releases/tag/${tag}`);
 console.log("Installed copies will see it within a few hours (or on next launch).");

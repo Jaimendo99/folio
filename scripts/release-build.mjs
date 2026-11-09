@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 import { RELEASE_ARTIFACTS } from "./check-release.mjs";
 
-export const SOURCE_REPO = "Forward-Future/folio";
+export const SOURCE_REPO = "Jaimendo99/folio";
 export const WORKFLOW = "release-build.yml";
 
 // Run this in the trusted publisher. A workflow in an unmerged tag could claim its own checks passed.
@@ -33,7 +33,7 @@ export function successfulAttempt(run, runId) {
   return run.run_attempt;
 }
 
-// Artifacts are immutable. A rerun may replace a platform's archive; require the same three IDs throughout the download.
+// Artifacts are immutable. A rerun may replace a platform's archive; require the same IDs throughout the download.
 export function artifactIds({ total_count, artifacts }, run) {
   const groups = Object.keys(RELEASE_ARTIFACTS);
   if (total_count !== groups.length || artifacts.length !== groups.length) throw new Error("Expected one artifact per platform.");

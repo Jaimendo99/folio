@@ -1,7 +1,11 @@
 # Folio
 
-A fast, clean PDF reader for Windows, macOS, and Linux. Read, highlight, annotate, sign, and ask AI about your
-documents. Free and open source, with no Folio account required.
+A fast, clean PDF reader for Windows and macOS. Read, highlight, annotate, sign (including digital signatures with a
+.p12/.pfx certificate), and ask AI about your documents. Free and open source, with no Folio account required.
+
+> This is a fork of [Forward-Future/folio](https://github.com/Forward-Future/folio). Its releases are published at
+> [Jaimendo99/folio](https://github.com/Jaimendo99/folio/releases) for Windows and macOS, and installed copies update
+> from there. The code still runs on Linux if you build it yourself, but this fork doesn't publish Linux packages.
 
 ![Folio with the Ask AI panel open, answering a question about the document with page citations](docs/screenshots/ask-ai.png)
 
@@ -13,12 +17,10 @@ documents. Free and open source, with no Folio account required.
 
 | Platform | Download | Updates |
 | --- | --- | --- |
-| **Windows** 10/11 (64-bit) | [Folio-Setup.exe](https://github.com/Forward-Future/folio-releases/releases/latest/download/Folio-Setup.exe) | Automatic |
-| **macOS** 12 or later (Apple Silicon and Intel) | [Folio-mac.dmg](https://github.com/Forward-Future/folio-releases/releases/latest/download/Folio-mac.dmg) | Folio tells you when a new version is out |
-| **Linux**: Ubuntu, Debian, and derivatives (64-bit) | [Folio-linux-amd64.deb](https://github.com/Forward-Future/folio-releases/releases/latest/download/Folio-linux-amd64.deb) | Automatic, with your system updates (apt) |
-| **Linux**: other distributions (64-bit) | [Folio-linux-x86_64.AppImage](https://github.com/Forward-Future/folio-releases/releases/latest/download/Folio-linux-x86_64.AppImage) | Automatic |
+| **Windows** 10/11 (64-bit) | [Folio-Setup.exe](https://github.com/Jaimendo99/folio/releases/latest/download/Folio-Setup.exe) | Automatic |
+| **macOS** 12 or later (Apple Silicon and Intel) | [Folio-mac.dmg](https://github.com/Jaimendo99/folio/releases/latest/download/Folio-mac.dmg) | Folio tells you when a new version is out |
 
-[All releases](https://github.com/Forward-Future/folio-releases/releases) · [Changelog](CHANGELOG.md) · Prefer not to
+[All releases](https://github.com/Jaimendo99/folio/releases) · [Changelog](CHANGELOG.md) · Prefer not to
 install on Windows? **Folio-Portable.exe** on the release page runs as-is (it doesn't auto-update).
 
 Folio's builds aren't signed with paid developer certificates yet, so the first launch needs one extra step:
@@ -26,11 +28,6 @@ Folio's builds aren't signed with paid developer certificates yet, so the first 
 - **Windows:** if SmartScreen warns, choose **More info → Run anyway**.
 - **macOS:** open the DMG and drag Folio to Applications. The first time you open it, macOS says it can't verify the
   developer: click **Done**, then go to **System Settings → Privacy & Security** and click **Open Anyway**.
-- **Linux (.deb):** `sudo apt install ./Folio-linux-amd64.deb`, then open Folio from your applications menu. The
-  package adds Folio's signed apt repository, so new versions arrive with your regular system updates (or
-  `sudo apt update && sudo apt upgrade`). Copies installed from a .deb before 1.9 need the new .deb installed once.
-- **Linux (AppImage):** make it executable (`chmod +x Folio-linux-x86_64.AppImage`) and run it. AppImages need FUSE 2:
-  `sudo apt install libfuse2t64` on Ubuntu 24.04 or later, `libfuse2` on older releases.
 
 Or build Folio yourself from source (below).
 
@@ -216,8 +213,6 @@ Use **Ask AI** to connect providers and **Storage** to manage saved annotations,
   and automatic installation; manual **Check for updates** remains available for self-updating editions.
 - **Installed Windows:** updates download in the background and install silently on exit, or when you choose
   **Restart and update**, without repeating the Setup wizard.
-- **Linux AppImage:** downloads updates and replaces the AppImage. **Linux .deb:** updates through the signed apt
-  repository and your system updater; Folio's toggle does not disable apt updates.
 - **macOS:** current unsigned builds notify you and offer the download; self-installing updates require a signed
   build. **Windows portable:** download a replacement manually.
 - **Visible update status:** checking, download progress, update-ready prompts, and errors are shown in the app.
@@ -319,10 +314,10 @@ npm run dev        # browser version with hot reload at http://localhost:5173
 
 npm run dist:win   # on Windows: release/Folio-Setup.exe and release/Folio-Portable.exe
 npm run dist:mac   # on macOS: release/Folio-mac.dmg (universal: Apple Silicon and Intel)
-npm run dist:linux # on Linux: release/Folio-linux-x86_64.AppImage and release/Folio-linux-amd64.deb
+npm run dist:linux # on Linux (not published by this fork): AppImage and .deb
 ```
 
-Each platform's installers are built on that platform; GitHub Actions builds all three for every release. If your
+Each platform's installers are built on that platform; GitHub Actions builds Windows and macOS for every release. If your
 terminal has `ELECTRON_RUN_AS_NODE=1` set, unset it first.
 
 ### How it's put together

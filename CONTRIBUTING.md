@@ -20,7 +20,7 @@ links you open, language packs you request, and AI providers you choose to conne
 
 ## Reporting bugs
 
-[Open an issue](https://github.com/Forward-Future/folio/issues/new/choose) with your Folio version (shown in **About
+[Open an issue](https://github.com/Jaimendo99/folio/issues/new/choose) with your Folio version (shown in **About
 Folio**), your operating system, what you did, what you expected, and what happened. If a specific PDF triggers the
 problem and you can share it, attach it, or describe how to make one. Keep each issue to one problem. For security
 issues, follow [SECURITY.md](SECURITY.md) instead.
@@ -31,7 +31,7 @@ issues, follow [SECURITY.md](SECURITY.md) instead.
 2. Run `npm run app` to build and launch the desktop app, or `npm run dev` for the browser version with hot reload.
    To develop the desktop shell against the dev server, start `npm run dev` and then run
    `FOLIO_DEV_URL=http://localhost:5173 npx electron .` (development builds only).
-3. Run `npm run build` and `npm run smoke` before opening a pull request. CI runs both on Windows, macOS, and Linux.
+3. Run `npm run build` and `npm run smoke` before opening a pull request. CI runs both on Windows and macOS.
 
 ### One problem per pull request
 
@@ -58,7 +58,7 @@ wrote the code, say which one at the end of the description. That's fine, but yo
 
 ### How pull requests are merged
 
-A maintainer reviews and merges. CI must pass on all three platforms. Pull requests are squash-merged, so the title
+A maintainer reviews and merges. CI must pass on Windows and macOS. Pull requests are squash-merged, so the title
 becomes the commit message on `main`. Merged changes ship with the next release. Don't change the version or the
 changelog; maintainers update both when releasing.
 
@@ -67,7 +67,7 @@ By contributing, you agree that your contributions are licensed under the projec
 ## Releasing
 
 Maintainers publish releases with the GitHub CLI logged in to an account that can write to
-[Forward-Future/folio-releases](https://github.com/Forward-Future/folio-releases). Commit everything, then run:
+[Jaimendo99/folio](https://github.com/Jaimendo99/folio) (releases are published on the same repository). Commit everything, then run:
 
 ```sh
 npm run release                                  # 1.0.0 -> 1.0.1
@@ -75,15 +75,15 @@ npm run release -- minor --notes "What changed"  # 1.0.0 -> 1.1.0
 ```
 
 This bumps the version and pushes the commit and tag. The tag starts the **Release build** workflow
-(`.github/workflows/release-build.yml`), which builds the Windows, macOS, and Linux installers on GitHub Actions and
+(`.github/workflows/release-build.yml`), which builds the Windows and macOS installers on GitHub Actions and
 checks that each packaged app starts. The script waits for it, downloads the installers, and publishes the release.
 Nothing is published if any platform fails; fix the problem, then run `npm run release -- --publish-only` to publish
 the same tag. After publishing, the script checks the release with `scripts/check-release.mjs`: every platform's files
-are present and every update feed (Windows, macOS, AppImage, apt) offers the new version. The daily **Release check**
+are present and every update feed (Windows, macOS) offers the new version. The daily **Release check**
 workflow repeats that check and opens an issue if anything is off.
 
 **Never publish any other way** (no hand-made `gh release` uploads or single-platform builds); see
 [AGENTS.md](AGENTS.md). Signing certificates are set up as repository secrets; see [SIGNING.md](SIGNING.md).
 
-CI (`.github/workflows/ci.yml`) type-checks, builds, and runs `npm run smoke` on all three platforms for every push to
+CI (`.github/workflows/ci.yml`) type-checks, builds, and runs `npm run smoke` on Windows and macOS for every push to
 `main` and every pull request.

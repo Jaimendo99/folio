@@ -576,7 +576,7 @@ try {
   await newer.click();
   assert.deepEqual(await summaries.allTextContents(), firstPage);
   assert.equal(await whatsNew.getByRole("link", { name: "View releases on GitHub" }).getAttribute("href"),
-    "https://github.com/Forward-Future/folio-releases/releases");
+    "https://github.com/Jaimendo99/folio/releases");
   await page.keyboard.press("Escape");
   await page.getByRole("dialog", { name: "Settings" }).waitFor();
   await page.keyboard.press("Escape");

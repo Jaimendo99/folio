@@ -78,3 +78,12 @@ test("only manifest files from the correct platform directory can be published",
   mkdirSync(path.join(mac, "latest-mac.yml"));
   assert.throws(() => releaseFiles(folder));
 });
+
+test("a release is Windows and macOS only, published on the source repository", async () => {
+  const { RELEASES_REPO } = await import("./check-release.mjs");
+  assert.deepEqual(Object.keys(RELEASE_ARTIFACTS), ["folio-windows", "folio-macos"]);
+  const names = Object.values(RELEASE_ARTIFACTS).flat().map(({ name }) => name);
+  assert.ok(names.includes("latest.yml") && names.includes("latest-mac.yml"));
+  assert.ok(!names.some((name) => /linux|AppImage|\.deb$|^Packages|Release|InRelease/.test(name)));
+  assert.equal(RELEASES_REPO, SOURCE_REPO);
+});
