@@ -37,6 +37,7 @@ import { ZoomMenu } from "./ZoomMenu";
 import { SearchBar, type FindResult } from "./SearchBar";
 import { AboutDialog, InfoDialog, OpenUrlDialog, PasswordDialog, ShortcutsDialog, parseWebUrl } from "./Dialogs";
 import { SignatureDialog } from "./SignatureDialog";
+import { DigitalSignatureDialog, type DigitalSignRequest } from "./DigitalSignatureDialog";
 import { ContentEditor, type ContentEditorHandle, type NextSelection } from "./ContentEditor";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
 import { saveVersion, type PdfChange } from "./versionHistory";
@@ -222,7 +223,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
   const [printCopy, setPrintCopy] = useState<{ pdf: PDFDocumentProxy; bytes: Uint8Array; page: number; name: string } | null>(null);
   const preparingPrint = useRef(false);
   useEffect(() => () => { if (printCopy) void printCopy.pdf.loadingTask.destroy(); }, [printCopy]);
-  const [dialog, setDialog] = useState<"info" | "shortcuts" | "about" | "url" | "settings" | "ai-settings" | "changelog" | "upgrade" | null>(
+  const [dialog, setDialog] = useState<"info" | "shortcuts" | "about" | "url" | "settings" | "ai-settings" | "changelog" | "upgrade" | "digital-sign" | null>(
     upgradeNotes.length ? "upgrade" : null);
   // A pasted or dropped link waits in Open from URL, so the user sees where it goes before Folio contacts it.
   const [linkDraft, setLinkDraft] = useState("");
@@ -885,6 +886,25 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     saveBlob(pdfBlob(bytes), copyName.toLowerCase().endsWith(".pdf") ? copyName : `${copyName}.pdf`);
   };
 
+  // The signature has to be the last change to the file: pending edits and marks go in first, and nothing
+  // rewrites the signed bytes afterwards (the copy opens in a new tab as it was saved).
+  const startDigitalSigning = async () => {
+    if (contentRef.current && !(await contentRef.current.finish())) return;
+    if (pageOrder) { flash("Save or cancel the new page order before signing."); return; }
+    setDialog("digital-sign");
+  };
+  const signDigitally = async (request: DigitalSignRequest) => {
+    const source = docRef.current;
+    if (!source || !window.folioDesktop) return "The document changed. Open Sign digitally again.";
+    let copy;
+    try { copy = await currentBytes(source, undefined); } catch { return "Couldn't prepare this document for signing."; }
+    if (!copy) return "Another export is in progress. Try again in a moment.";
+    const result = await window.folioDesktop.signing.sign({ ...request, pdf: copy.bytes, page, name: source.name });
+    if (result && "error" in result) return result.error;
+    if (result) { tabs.open([{ kind: "bytes", name: result.name, data: result.data }]); flash("Signed copy saved"); }
+    return null;
+  };
+
   const exportPages = async (pages: number[]) => {
     if (contentRef.current && !(await contentRef.current.finish())) return;
     const source = docRef.current;
@@ -1364,6 +1384,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
                     { kind: "action", icon: "close", label: "Close document", shortcut: keys("Ctrl W"), onSelect: () => void tabs.close(tabKey) },
                     { kind: "divider" },
                     { kind: "action", icon: "download", label: "Save a copy", shortcut: keys("Ctrl S"), onSelect: download },
+                    ...(window.folioDesktop ? [{ kind: "action", icon: "lock", label: "Sign digitally", onSelect: () => void startDigitalSigning() }] : []),
                     { kind: "action", icon: "history", label: "Version history", onSelect: () => { setAiOpen(false); setHistoryOpen(true); } },
                     { kind: "action", icon: "print", label: "Print", shortcut: keys("Ctrl P"), onSelect: print },
                     { kind: "action", icon: "info", label: "Document info", onSelect: () => setDialog("info") },
@@ -1645,6 +1666,8 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         }}
         onOpenChangelog={() => setDialog("changelog")} onClose={() => setDialog(null)} />}
       {/* Closing goes back to Settings, where the changelog is opened from. */}
+      {dialog === "digital-sign" && doc && <DigitalSignatureDialog key={doc.id} pageNumber={page} targets={signatureTargets}
+        onSign={signDigitally} onClose={() => setDialog(null)} />}
       {dialog === "changelog" && <ChangelogDialog onClose={() => setDialog("settings")} />}
       {dialog === "upgrade" && <ChangelogDialog upgradeNotes={upgradeNotes} onClose={() => setDialog(null)} />}
       {doc && imageView && <ImageViewer pdf={doc.pdf} target={imageView} onClose={() => setImageView(null)} />}

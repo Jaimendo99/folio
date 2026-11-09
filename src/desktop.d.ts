@@ -38,6 +38,28 @@ interface FolioDesktop {
   getAutoUpdateEnabled(): Promise<boolean>;
   setAutoUpdateEnabled(enabled: boolean): Promise<boolean>;
   ai: FolioAi;
+  signing: FolioSigning;
+}
+
+interface CertificateInfo {
+  name: string;
+  /** The issuing provider (issuer organization, or its common name). */
+  provider: string;
+  serial: string;
+  validFrom: string;
+  validTo: string;
+  expired: boolean;
+  notYetValid: boolean;
+}
+
+interface FolioSigning {
+  /** Null when the user cancels the file picker. */
+  chooseCertificate(): Promise<{ id: string; name: string } | { error: string } | null>;
+  readCertificate(id: string, password: string): Promise<CertificateInfo | { error: string }>;
+  forget(): Promise<boolean>;
+  /** Signs, asks where to save the copy, and returns it; null when the user cancels saving. */
+  sign(request: { id: string; password: string; pdf: Uint8Array; page: number; rect?: number[]; reason: string; location: string; name: string }):
+    Promise<{ name: string; data: Uint8Array } | { error: string } | null>;
 }
 
 interface AiStatus {

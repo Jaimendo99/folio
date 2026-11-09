@@ -57,6 +57,16 @@ contextBridge.exposeInMainWorld("folioDesktop", {
   checkForUpdates: () => ipcRenderer.send("folio:check-update"),
   getAutoUpdateEnabled: () => ipcRenderer.invoke("folio:auto-update-setting"),
   setAutoUpdateEnabled: (enabled) => ipcRenderer.invoke("folio:set-auto-update-setting", enabled),
+  /** Each call resolves to { error } on failure; chooseCertificate and sign resolve to null when the user cancels. */
+  signing: {
+    chooseCertificate: () => ipcRenderer.invoke("folio:signing-choose-certificate"),
+    readCertificate: (id, password) => ipcRenderer.invoke("folio:signing-read-certificate", id, password),
+    forget: () => ipcRenderer.invoke("folio:signing-forget"),
+    async sign(request) {
+      const result = await ipcRenderer.invoke("folio:signing-sign", request);
+      return result && !result.error ? { name: result.name, data: new Uint8Array(result.data) } : result;
+    },
+  },
   ai: {
     status: () => ipcRenderer.invoke("folio:ai-status"),
     signInChatGPT: () => ipcRenderer.invoke("folio:ai-chatgpt-signin"),

@@ -521,6 +521,56 @@ async function downloadPdf(url, approvedLocal, signal) {
   }).finally(guard.close);
 }
 
+// Signing with a .p12/.pfx certificate. The page sees only the file's name and the certificate's public details;
+// the file stays here, and the password is used for one call and never kept.
+function registerDigitalSigning(handle) {
+  // Loaded on first use: node-forge, pdf-lib and the QR encoder aren't needed to start Folio.
+  let loaded = null;
+  const signing = () => (loaded ??= require("./digital-signature.cjs"));
+  let certificate = null;
+  const result = async (work) => {
+    try { return await work(); } catch (error) {
+      return { error: error instanceof signing().CertificateError ? error.message : "Couldn't sign this document." };
+    }
+  };
+  const chosen = (id) => {
+    if (!certificate || typeof id !== "string" || id !== certificate.id) throw new signing().CertificateError("Choose the certificate again.");
+    return certificate;
+  };
+  handle("folio:signing-choose-certificate", () => result(async () => {
+    const picked = await dialog.showOpenDialog(win, { title: "Choose your certificate", properties: ["openFile"],
+      filters: [{ name: "Certificates (.p12, .pfx)", extensions: ["p12", "pfx"] }] });
+    if (picked.canceled || !picked.filePaths[0]) return null;
+    const file = picked.filePaths[0];
+    let data;
+    try { checkDiskPath(file); data = await readRegular(file, signing().MAX_CERTIFICATE_BYTES); }
+    catch { throw new signing().CertificateError("Couldn't read that certificate file."); }
+    certificate = { id: crypto.randomUUID(), name: path.basename(file), data };
+    return { id: certificate.id, name: certificate.name };
+  }));
+  handle("folio:signing-read-certificate", (_event, id, password) => result(() => {
+    if (typeof password !== "string") throw new signing().CertificateError("Enter the certificate's password.");
+    return signing().readP12(chosen(id).data, password);
+  }));
+  handle("folio:signing-forget", () => { certificate = null; return true; });
+  handle("folio:signing-sign", (_event, request) => result(async () => {
+    const { id, password, pdf, page, rect, reason, location, name } = request ?? {};
+    if (typeof password !== "string") throw new signing().CertificateError("Enter the certificate's password.");
+    if (!(pdf instanceof Uint8Array) || pdf.length > MAX_DOCUMENT_BYTES) throw new signing().CertificateError("This document is too large to sign.");
+    const signed = await signing().signPdf(pdf, { p12: chosen(id).data, password, page, rect,
+      reason: typeof reason === "string" ? reason : "", location: typeof location === "string" ? location : "" });
+    const suggested = safePdfName(String(typeof name === "string" ? name : "").replace(/\.pdf$/i, "") + "-firmado", "documento-firmado.pdf");
+    const target = await dialog.showSaveDialog(win, { title: "Save signed copy", defaultPath: path.join(app.getPath("documents"), suggested),
+      filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    if (target.canceled || !target.filePath) return null;
+    const file = /\.pdf$/i.test(target.filePath) ? target.filePath : target.filePath + ".pdf";
+    try { checkDiskPath(file); await fs.promises.writeFile(file, signed); }
+    catch { throw new signing().CertificateError("Couldn't save the signed copy there. Choose another folder."); }
+    certificate = null;
+    return { name: path.basename(file), data: signed };
+  }));
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -613,6 +663,7 @@ if (!app.requestSingleInstanceLock()) {
       const { downloadOcrModel } = await import("./ocr-download.mjs");
       return downloadOcrModel(code, (url, options) => net.fetch(url, options));
     });
+    registerDigitalSigning(handle);
     handle("folio:update-state", () => updateStatus);
     handle("folio:auto-update-setting", () => automaticUpdates);
     handle("folio:set-auto-update-setting", (_event, enabled) => saveUpdatePreference(enabled));

@@ -599,6 +599,50 @@ try {
   await page.locator(".freeTextEditor", { hasText: "Saved text box" }).waitFor({ timeout: 15_000 });
   console.log("ok  text box restored after reopening");
 
+  // Sign digitally: a legacy (3DES) certificate made here, the file pickers answered in the main process.
+  {
+    const forge = require("node-forge");
+    const crypto = require("node:crypto");
+    const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const key = forge.pki.privateKeyFromPem(privateKey.export({ type: "pkcs1", format: "pem" }));
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = forge.pki.publicKeyFromPem(publicKey.export({ type: "spki", format: "pem" }));
+    cert.serialNumber = "01";
+    cert.validity.notBefore = new Date(Date.now() - 86400000);
+    cert.validity.notAfter = new Date(Date.now() + 365 * 86400000);
+    cert.setSubject([{ shortName: "CN", value: "Smoke Signer" }]);
+    cert.setIssuer([{ shortName: "CN", value: "Smoke Signer" }, { shortName: "O", value: "Smoke Provider" }]);
+    cert.sign(key, forge.md.sha256.create());
+    const p12 = path.join(env.FOLIO_TEST_USER_DATA, "smoke.p12");
+    writeFileSync(p12, Buffer.from(forge.asn1.toDer(forge.pkcs12.toPkcs12Asn1(key, [cert], "smoke", { algorithm: "3des" })).getBytes(), "binary"));
+    const signedPath = path.join(env.FOLIO_TEST_USER_DATA, "signed.pdf");
+    await app.evaluate(({ dialog }, files) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [files.p12] });
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: files.signedPath });
+    }, { p12, signedPath });
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Sign digitally" }).click();
+    const signDialog = page.getByRole("dialog", { name: "Sign digitally" });
+    await signDialog.getByRole("button", { name: "Choose certificate" }).click();
+    await signDialog.getByLabel("Password").fill("wrong");
+    await signDialog.getByRole("button", { name: "Open certificate" }).click();
+    await signDialog.getByText("Wrong password for this certificate.").waitFor();
+    await signDialog.getByLabel("Password").fill("smoke");
+    await signDialog.getByRole("button", { name: "Open certificate" }).click();
+    await signDialog.getByText("Smoke Signer").waitFor();
+    await signDialog.getByRole("button", { name: "Sign and save" }).click();
+    await page.window.waitForFunction(() => document.title.startsWith("signed.pdf"), null, { timeout: 30_000 });
+    const signed = readFileSync(signedPath, "latin1");
+    assert.match(signed, /\/ByteRange \[0 \d+ \d+ \d+\]/);
+    // The text box added above was applied before signing.
+    assert.match(signed, /\/Subtype\s*\/FreeText\b/);
+    // Close the signed copy once it has rendered, back to the document it was made from.
+    await page.locator(".textLayer span:not(.markedContent)").first().waitFor({ timeout: 30_000 });
+    await page.keyboard.press("ControlOrMeta+w");
+    await page.locator(".freeTextEditor", { hasText: "Saved text box" }).waitFor({ timeout: 15_000 });
+    console.log("ok  signed digitally with a .p12 certificate");
+  }
+
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(shots, `smoke-${process.platform}.png`) });
   await checkReaderTools(app, page, env.FOLIO_TEST_USER_DATA, shots);
