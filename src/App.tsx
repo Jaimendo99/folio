@@ -31,6 +31,7 @@ import { recognizeScannedPages } from "./pageOcr";
 import { scanLanguagesFrom } from "./scanLanguage";
 import { ImageMenu, ImageViewer, type ImageTarget } from "./ImageViewer";
 import { MoreMenu, type MoreItem } from "./MoreMenu";
+import { SignMenu } from "./SignMenu";
 import { IS_MAC, keys } from "./platform";
 import { AiPanel, forgetClearedChats, type AiContext } from "./AiPanel";
 import { ZoomMenu } from "./ZoomMenu";
@@ -891,7 +892,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
   const startDigitalSigning = async () => {
     if (contentRef.current && !(await contentRef.current.finish())) return;
     if (pageOrder) { flash("Save or cancel the new page order before signing."); return; }
-    setDialog("digital-sign");
+    if (await chooseTool("select")) setDialog("digital-sign");
   };
   const signDigitally = async (request: DigitalSignRequest) => {
     const source = docRef.current;
@@ -899,9 +900,10 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     let copy;
     try { copy = await currentBytes(source, undefined); } catch { return "Couldn't prepare this document for signing."; }
     if (!copy) return "Another export is in progress. Try again in a moment.";
-    const result = await window.folioDesktop.signing.sign({ ...request, pdf: copy.bytes, page, name: source.name });
+    const result = await window.folioDesktop.signing.sign({ ...request, pdf: copy.bytes, name: source.name });
     if (result && "error" in result) return result.error;
-    if (result) { tabs.open([{ kind: "bytes", name: result.name, data: result.data }]); flash("Signed copy saved"); }
+    // The copy opens on the page that was signed.
+    if (result) { tabs.open([{ kind: "bytes", name: result.name, data: result.data, page: request.page }]); flash("Signed copy saved"); }
     return null;
   };
 
@@ -1027,7 +1029,8 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     const open = async (source: OpenSource) => {
       switch (source.kind) {
         case "bytes":
-          await openBytes(source.name, new Uint8Array(source.data.buffer, source.data.byteOffset, source.data.byteLength), source.password);
+          await openBytes(source.name, new Uint8Array(source.data.buffer, source.data.byteOffset, source.data.byteLength), source.password,
+            undefined, source.page);
           if (source.note && docRef.current?.name === source.name) flash(source.note);
           break;
         case "blob":
@@ -1355,7 +1358,8 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
                   <span>{t.label}</span>
                 </button>
               ))}
-              <button onClick={startSigning} aria-label="Sign" title="Add a signature"><Icon name="signature" size={16} /><span>Sign</span></button>
+              {window.folioDesktop ? <SignMenu onHandwritten={startSigning} onDigital={() => void startDigitalSigning()} />
+                : <button onClick={startSigning} aria-label="Sign" title="Add a signature"><Icon name="signature" size={16} /><span>Sign</span></button>}
               <button className={contentEditing ? "on edit-mode-toggle" : "edit-mode-toggle"} aria-pressed={contentEditing}
                 aria-label={contentEditing ? "Exit edit mode" : "Edit mode"} title={contentEditing ? "Exit edit mode" : "Edit existing text and images"}
                 onClick={() => contentEditing ? leaveEditMode() : chooseTool("select", true)}>
@@ -1384,7 +1388,6 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
                     { kind: "action", icon: "close", label: "Close document", shortcut: keys("Ctrl W"), onSelect: () => void tabs.close(tabKey) },
                     { kind: "divider" },
                     { kind: "action", icon: "download", label: "Save a copy", shortcut: keys("Ctrl S"), onSelect: download },
-                    ...(window.folioDesktop ? [{ kind: "action", icon: "lock", label: "Sign digitally", onSelect: () => void startDigitalSigning() }] : []),
                     { kind: "action", icon: "history", label: "Version history", onSelect: () => { setAiOpen(false); setHistoryOpen(true); } },
                     { kind: "action", icon: "print", label: "Print", shortcut: keys("Ctrl P"), onSelect: print },
                     { kind: "action", icon: "info", label: "Document info", onSelect: () => setDialog("info") },
@@ -1666,8 +1669,8 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         }}
         onOpenChangelog={() => setDialog("changelog")} onClose={() => setDialog(null)} />}
       {/* Closing goes back to Settings, where the changelog is opened from. */}
-      {dialog === "digital-sign" && doc && <DigitalSignatureDialog key={doc.id} pageNumber={page} targets={signatureTargets}
-        onSign={signDigitally} onClose={() => setDialog(null)} />}
+      {dialog === "digital-sign" && doc && viewerRef.current && container && <DigitalSignatureDialog key={doc.id} viewer={viewerRef.current}
+        container={container} targets={signatureTargets} onSign={signDigitally} onClose={() => setDialog(null)} />}
       {dialog === "changelog" && <ChangelogDialog onClose={() => setDialog("settings")} />}
       {dialog === "upgrade" && <ChangelogDialog upgradeNotes={upgradeNotes} onClose={() => setDialog(null)} />}
       {doc && imageView && <ImageViewer pdf={doc.pdf} target={imageView} onClose={() => setImageView(null)} />}
@@ -1677,7 +1680,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           await placeSignature(viewerRef.current!, doc.pdf, page, signature, rect);
           markDirty(); setSignatureDismissed(true); flash(keys("Signature added. Ctrl+Z to undo; Save copy to export."));
         }} />}
-      {doc && !contentEditing && !signing && signatureTargets.length > 0 && !signatureDismissed && <div className="signature-suggestion" role="status">
+      {doc && !contentEditing && !signing && dialog !== "digital-sign" && signatureTargets.length > 0 && !signatureDismissed && <div className="signature-suggestion" role="status">
         <span>{signatureTargets[0].kind === "field" ? "Signature field detected" : "Possible signature area"} on page {page}</span>
         <button className="btn primary" onClick={startSigning}>Review signature</button>
         <button className="pill-btn" aria-label="Dismiss signature suggestion" onClick={() => setSignatureDismissed(true)}><Icon name="close" size={14} /></button>

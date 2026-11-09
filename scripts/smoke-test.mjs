@@ -6,7 +6,7 @@ import { _electron as electron } from "playwright-core";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import http from "node:http";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import assert from "node:assert/strict";
@@ -205,6 +205,7 @@ try {
     return canvas.toDataURL("image/png").split(",")[1];
   });
   await page.getByTitle("Add a signature").click();
+  await page.getByRole("menuitem", { name: "Handwritten signature" }).click();
   await page.locator('input[aria-label="Upload signature photo"]').setInputFiles({ name: "signature.png", mimeType: "image/png", buffer: Buffer.from(photo, "base64") });
   await page.getByRole("button", { name: /Use this signature/ }).click();
   await page.locator('select[aria-label="Signature placement"]').selectOption("manual");
@@ -599,10 +600,13 @@ try {
   await page.locator(".freeTextEditor", { hasText: "Saved text box" }).waitFor({ timeout: 15_000 });
   console.log("ok  text box restored after reopening");
 
-  // Sign digitally: a legacy (3DES) certificate made here, the file pickers answered in the main process.
+  // Sign digitally: a legacy (3DES) certificate made here, the file pickers answered in the main process. Names as long
+  // as real Ecuadorian ones, so the dialog's layout is checked with them.
   {
     const forge = require("node-forge");
     const crypto = require("node:crypto");
+    const { PDFDocument, PDFName, PDFString } = require("pdf-lib");
+    const signer = "JAIME JOSUE MENDOZA ZAMBRANO";
     const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
     const key = forge.pki.privateKeyFromPem(privateKey.export({ type: "pkcs1", format: "pem" }));
     const cert = forge.pki.createCertificate();
@@ -610,18 +614,26 @@ try {
     cert.serialNumber = "01";
     cert.validity.notBefore = new Date(Date.now() - 86400000);
     cert.validity.notAfter = new Date(Date.now() + 365 * 86400000);
-    cert.setSubject([{ shortName: "CN", value: "Smoke Signer" }]);
-    cert.setIssuer([{ shortName: "CN", value: "Smoke Signer" }, { shortName: "O", value: "Smoke Provider" }]);
+    cert.setSubject([{ shortName: "CN", value: signer }]);
+    cert.setIssuer([{ shortName: "CN", value: "AUTORIDAD DE CERTIFICACION SUBCA-2 SECURITY DATA" },
+      { shortName: "O", value: "SECURITY DATA SEGURIDAD EN DATOS Y FIRMA DIGITAL S.A." }]);
     cert.sign(key, forge.md.sha256.create());
-    const p12 = path.join(env.FOLIO_TEST_USER_DATA, "smoke.p12");
+    const p12 = path.join(env.FOLIO_TEST_USER_DATA, `${signer} 1312242900-070324130853.p12`);
     writeFileSync(p12, Buffer.from(forge.asn1.toDer(forge.pkcs12.toPkcs12Asn1(key, [cert], "smoke", { algorithm: "3des" })).getBytes(), "binary"));
     const signedPath = path.join(env.FOLIO_TEST_USER_DATA, "signed.pdf");
     await app.evaluate(({ dialog }, files) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [files.p12] });
       dialog.showSaveDialog = async () => ({ canceled: false, filePath: files.signedPath });
     }, { p12, signedPath });
-    await page.getByRole("button", { name: "More", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Sign digitally" }).click();
+    const openDigitalSigning = async () => {
+      await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Sign", exact: true }).click();
+      await page.getByRole("menuitem", { name: /Digital signature/ }).click();
+    };
+    // Signed on the page being read, not the first one.
+    await page.getByLabel("Page number").fill("2");
+    await page.getByLabel("Page number").press("Enter");
+    await page.window.waitForTimeout(400);
+    await openDigitalSigning();
     const signDialog = page.getByRole("dialog", { name: "Sign digitally" });
     await signDialog.getByRole("button", { name: "Choose certificate" }).click();
     await signDialog.getByLabel("Password").fill("wrong");
@@ -629,21 +641,70 @@ try {
     await signDialog.getByText("Wrong password for this certificate.").waitFor();
     await signDialog.getByLabel("Password").fill("smoke");
     await signDialog.getByRole("button", { name: "Open certificate" }).click();
-    await signDialog.getByText("Smoke Signer").waitFor();
-    await signDialog.getByRole("button", { name: "Sign and save" }).click();
+    await signDialog.getByText(signer, { exact: true }).waitFor();
+    assert.ok(await signDialog.getByLabel(/Remember this certificate/).isChecked(), "remembering is on by default");
+    // Nothing in the dialog is wider than the dialog itself.
+    const overflow = await page.evaluate(() => {
+      const modal = document.querySelector(".modal").getBoundingClientRect();
+      return [...document.querySelectorAll(".modal *")].map(element => element.getBoundingClientRect())
+        .filter(box => box.width && (box.left < modal.left - 0.5 || box.right > modal.right + 0.5)).length;
+    });
+    assert.equal(overflow, 0, "the dialog's content fits inside it");
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(shots, "sign-digitally-dialog.png") });
+    await signDialog.getByRole("button", { name: "Choose place" }).click();
+
+    // Drag the stamp so its top-left corner sits 10% in from the left and 20% down page 2, then widen it.
+    const box = page.locator(".stamp-box");
+    await box.waitFor();
+    assert.equal(await page.getByRole("dialog").count(), 0, "the dialog steps aside while the stamp is placed");
+    await page.getByText("Place the stamp on page 2").waitFor();
+    const pageBox = await page.locator('.page[data-page-number="2"]').boundingBox();
+    const start = await box.boundingBox();
+    const grab = [start.x + start.width / 2, start.y + start.height / 2];
+    await page.mouse.move(...grab);
+    await page.mouse.down();
+    await page.mouse.move(grab[0] + pageBox.x + pageBox.width * 0.1 - start.x, grab[1] + pageBox.y + pageBox.height * 0.2 - start.y, { steps: 8 });
+    await page.mouse.up();
+    const handle = await page.locator(".stamp-resize").boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2 + 60, handle.y + handle.height / 2, { steps: 6 });
+    await page.mouse.up();
+    const dropped = await box.boundingBox();
+    const points = 612 / pageBox.width;
+    const expected = [(dropped.x - pageBox.x) * points, 792 - (dropped.y + dropped.height - pageBox.y) * points,
+      (dropped.x + dropped.width - pageBox.x) * points, 792 - (dropped.y - pageBox.y) * points];
+    assert.ok(Math.abs(expected[0] - 61.2) < 3 && Math.abs(expected[3] - 633.6) < 3, `the stamp moved where it was dropped: ${expected}`);
+    assert.ok(expected[2] - expected[0] > 240, "the stamp was made wider");
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(shots, "sign-digitally-placement.png") });
+    await page.getByRole("region", { name: "Place the stamp" }).getByRole("button", { name: "Sign", exact: true }).click();
     await page.window.waitForFunction(() => document.title.startsWith("signed.pdf"), null, { timeout: 30_000 });
     const signed = readFileSync(signedPath, "latin1");
     assert.match(signed, /\/ByteRange \[0 \d+ \d+ \d+\]/);
     // The text box added above was applied before signing.
     assert.match(signed, /\/Subtype\s*\/FreeText\b/);
-    // Close the signed copy once it has rendered, back to the document it was made from.
+    const signedDoc = await PDFDocument.load(readFileSync(signedPath));
+    const stamp = signedDoc.getForm().getFields().find(field => field.getName() === "Signature1").acroField.getWidgets()[0];
+    assert.equal(signedDoc.getPages().findIndex(item => item.ref === stamp.P()), 1, "the stamp is on page 2");
+    const rect = stamp.getRectangle();
+    [rect.x, rect.y, rect.x + rect.width, rect.y + rect.height].forEach((value, i) =>
+      assert.ok(Math.abs(value - expected[i]) < 2, `the stamp's /Rect matches where it was placed: ${JSON.stringify(rect)} vs ${expected}`));
+    // The copy opens on the signed page.
     await page.locator(".textLayer span:not(.markedContent)").first().waitFor({ timeout: 30_000 });
+    await page.window.waitForFunction(() => document.querySelector("iframe.document-reader.active")?.contentDocument
+      ?.querySelector('[aria-label="Page number"]')?.value === "2", null, { timeout: 15_000 });
+    // Remembered without its password.
+    const saved = JSON.parse(readFileSync(path.join(env.FOLIO_TEST_USER_DATA, "certificates.json"), "utf8"));
+    assert.deepEqual(saved.map(entry => [entry.name, entry.path]), [[signer, p12]], "the certificate is remembered");
+    assert.deepEqual(Object.keys(saved[0]).sort(), ["id", "name", "path", "provider", "serial", "validTo"], "its password isn't");
+    // Close the signed copy, back to the document it was made from.
     await page.keyboard.press("ControlOrMeta+w");
     await page.locator(".freeTextEditor", { hasText: "Saved text box" }).waitFor({ timeout: 15_000 });
-    console.log("ok  signed digitally with a .p12 certificate");
+    console.log("ok  signed digitally with a .p12 certificate, the stamp placed and resized on the page being read");
 
-    // Choosing a detected empty signature field signs that field rather than adding another one.
-    const { PDFDocument, PDFName, PDFString } = require("pdf-lib");
+    // A saved certificate signs into a detected empty signature field.
     const formDoc = await PDFDocument.create();
     const formPage = formDoc.addPage([612, 792]);
     const helvetica = await formDoc.embedFont("Helvetica");
@@ -655,18 +716,23 @@ try {
     const formBytes = await formDoc.save();
     const fieldSignedPath = path.join(env.FOLIO_TEST_USER_DATA, "field-signed.pdf");
     await app.evaluate(({ dialog, BrowserWindow }, { files, data }) => {
-      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [files.p12] });
+      dialog.showOpenDialog = async () => { throw new Error("the saved certificate should open without a file picker"); };
       dialog.showSaveDialog = async () => ({ canceled: false, filePath: files.fieldSignedPath });
       BrowserWindow.getAllWindows()[0].webContents.send("folio:open-file", { name: "Application.pdf", data: Buffer.from(data) });
-    }, { files: { p12, fieldSignedPath }, data: [...formBytes] });
+    }, { files: { fieldSignedPath }, data: [...formBytes] });
     await page.window.waitForFunction(() => document.title.startsWith("Application.pdf"), null, { timeout: 15_000 });
     await page.getByText("Signature field detected").waitFor({ timeout: 15_000 });
-    await page.getByRole("button", { name: "More", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Sign digitally" }).click();
-    await signDialog.getByRole("button", { name: "Choose certificate" }).click();
+    await openDigitalSigning();
+    const savedCertificate = signDialog.getByRole("button", { name: `Use ${signer}` });
+    await savedCertificate.waitFor();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(shots, "sign-digitally-saved.png") });
+    await savedCertificate.click();
     await signDialog.getByLabel("Password").fill("smoke");
     await signDialog.getByRole("button", { name: "Open certificate" }).click();
-    await signDialog.getByLabel("Stamp position").selectOption({ label: "ApplicantSignature" });
+    await signDialog.getByText(signer, { exact: true }).waitFor();
+    assert.equal(await signDialog.getByLabel(/Remember this certificate/).count(), 0, "a saved certificate isn't offered again");
+    assert.equal(await signDialog.getByLabel("Stamp position").inputValue() !== "place", true, "the detected field is the quick pick");
     await signDialog.getByRole("button", { name: "Sign and save" }).click();
     await page.window.waitForFunction(() => document.title.startsWith("field-signed.pdf"), null, { timeout: 30_000 });
     const fieldSigned = await PDFDocument.load(readFileSync(fieldSignedPath));
@@ -682,7 +748,34 @@ try {
       await page.window.waitForFunction(name => !document.title.startsWith(name), closing, { timeout: 15_000 });
     }
     await page.locator(".freeTextEditor", { hasText: "Saved text box" }).waitFor({ timeout: 15_000 });
-    console.log("ok  signed digitally into an existing signature field");
+    console.log("ok  a saved certificate signed into an existing signature field");
+
+    // Escape leaves the placement step without signing.
+    await openDigitalSigning();
+    await savedCertificate.click();
+    await signDialog.getByLabel("Password").fill("smoke");
+    await signDialog.getByRole("button", { name: "Open certificate" }).click();
+    await signDialog.getByRole("button", { name: "Choose place" }).click();
+    await box.waitFor();
+    await page.keyboard.press("Escape");
+    await box.waitFor({ state: "detached" });
+    assert.equal(await page.getByRole("dialog").count(), 0);
+    assert.equal(await page.getByRole("region", { name: "Place the stamp" }).count(), 0);
+
+    // A saved certificate whose file was moved says so, and can be forgotten.
+    renameSync(p12, p12 + ".moved");
+    await openDigitalSigning();
+    await savedCertificate.click();
+    await signDialog.getByText(/isn't where it was saved/).waitFor();
+    await signDialog.getByText(/File not found/).waitFor();
+    await signDialog.getByRole("button", { name: `Forget ${signer}` }).click();
+    await savedCertificate.waitFor({ state: "detached" });
+    await signDialog.getByRole("button", { name: "Choose certificate" }).waitFor();
+    await page.keyboard.press("Escape");
+    assert.ok(!readFileSync(path.join(env.FOLIO_TEST_USER_DATA, "certificates.json"), "utf8").includes(signer));
+    console.log("ok  Escape cancels placing the stamp; a moved certificate is reported and can be forgotten");
+    await page.getByLabel("Page number").fill("1");
+    await page.getByLabel("Page number").press("Enter");
   }
 
   await page.waitForTimeout(500);

@@ -276,3 +276,86 @@ test("a missing, invalid or already signed field is refused", async () => {
   const textField = await formWithIndirectFields();
   await assert.rejects(signPdf(textField, { p12: modern, password: PASSWORD, field: "Applicant.Name" }), /isn't a signature field/);
 });
+
+test("a stamp placed by the user keeps its rectangle", async () => {
+  const signed = await signPdf(SAMPLE, { p12: modern, password: PASSWORD, page: 1, rect: [100.5, 200.25, 320.5, 270.25] });
+  const doc = await PDFDocument.load(signed);
+  const widget = doc.getForm().getFields().find(field => field.getName() === "Signature1").acroField.getWidgets()[0];
+  const box = widget.getRectangle();
+  assert.deepEqual([box.x, box.y, box.width, box.height], [100.5, 200.25, 220, 70]);
+});
+
+// ── Saved certificates ────────────────────────────────────────────────
+const { createCertificateStore } = require("../electron/certificate-store.cjs");
+
+function storeFixture() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "folio-certs-"));
+  const certificatePath = path.join(dir, "JAIME JOSUE MENDOZA ZAMBRANO 1312242900-070324130853.p12");
+  fs.writeFileSync(certificatePath, legacy);
+  return { dir, certificatePath, storeFile: path.join(dir, "userData", "certificates.json"),
+    cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+test("a saved certificate keeps its path and public details, never the password", (t) => {
+  const { certificatePath, storeFile, cleanup } = storeFixture();
+  t.after(cleanup);
+  const store = createCertificateStore(storeFile);
+  const info = readP12(legacy, PASSWORD);
+  // Whatever extra the caller passes along (a password included) isn't written.
+  const id = store.remember(certificatePath, { ...info, password: PASSWORD, privateKey: "secret" });
+  const written = fs.readFileSync(storeFile, "utf8");
+  assert.ok(!written.includes(PASSWORD) && !written.includes("secret"), "nothing secret is stored");
+  assert.deepEqual(Object.keys(JSON.parse(written)[0]).sort(), ["id", "name", "path", "provider", "serial", "validTo"]);
+  const [entry] = store.list();
+  assert.deepEqual(entry, { id, fileName: path.basename(certificatePath), name: "MARÍA JOSÉ PEÑA", provider: "Proveedor de Prueba S.A.",
+    serial: info.serial, validTo: info.validTo, expired: false, missing: false });
+  assert.ok(!JSON.stringify(store.list()).includes(path.dirname(certificatePath)), "the page never sees the path");
+  // Remembering it again updates the same entry.
+  assert.equal(store.remember(certificatePath, info), id);
+  assert.equal(store.list().length, 1);
+});
+
+test("saved certificates are found by id only", (t) => {
+  const { certificatePath, storeFile, cleanup } = storeFixture();
+  t.after(cleanup);
+  const store = createCertificateStore(storeFile);
+  const id = store.remember(certificatePath, readP12(legacy, PASSWORD));
+  assert.equal(store.find(id).path, certificatePath);
+  for (const other of [certificatePath, "/etc/passwd", "../certificates.json", crypto.randomUUID(), { id }, [id], 42, null, undefined]) {
+    assert.equal(store.find(other), null, `nothing found for ${JSON.stringify(other)}`);
+  }
+  assert.throws(() => store.remember("/etc/passwd", {}), /\.p12 and \.pfx/);
+  assert.throws(() => store.remember("relative/cert.p12", {}), /\.p12 and \.pfx/);
+  // Entries edited into the file by hand that don't point at a certificate are ignored.
+  const entries = JSON.parse(fs.readFileSync(storeFile, "utf8"));
+  entries.push({ id: crypto.randomUUID(), path: "/etc/passwd", name: "x" }, { id: "not-an-id", path: certificatePath });
+  fs.writeFileSync(storeFile, JSON.stringify(entries));
+  assert.deepEqual(store.list().map(entry => entry.id), [id]);
+  assert.equal(store.find(entries[1].id), null);
+  assert.ok(store.forget(id));
+  assert.equal(store.find(id), null);
+  assert.deepEqual(store.list(), []);
+});
+
+test("a saved certificate whose file moved is marked missing, and choosing it again updates the entry", (t) => {
+  const { dir, certificatePath, storeFile, cleanup } = storeFixture();
+  t.after(cleanup);
+  const store = createCertificateStore(storeFile);
+  const info = readP12(legacy, PASSWORD);
+  const id = store.remember(certificatePath, info);
+  const moved = path.join(dir, "moved.pfx");
+  fs.renameSync(certificatePath, moved);
+  assert.equal(store.list()[0].missing, true);
+  assert.equal(store.remember(moved, info), id, "the same certificate at its new place keeps its entry");
+  assert.deepEqual(store.list().map(entry => [entry.id, entry.fileName, entry.missing]), [[id, "moved.pfx", false]]);
+});
+
+test("an expired saved certificate is marked expired, and a broken list reads as empty", (t) => {
+  const { certificatePath, storeFile, cleanup } = storeFixture();
+  t.after(cleanup);
+  const store = createCertificateStore(storeFile);
+  store.remember(certificatePath, { name: "Old", provider: "CA", serial: "01", validTo: new Date(Date.now() - DAY).toISOString() });
+  assert.equal(store.list()[0].expired, true);
+  fs.writeFileSync(storeFile, "{ not json");
+  assert.deepEqual(store.list(), []);
+});

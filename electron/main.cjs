@@ -14,6 +14,7 @@ const { csp } = require("./csp.cjs");
 const { WORD_FILE, openWord } = require("./convert.cjs");
 const { registerPrinting } = require("./printing.cjs");
 const { MAX_DOCUMENT_BYTES, checkDiskPath, readRegular } = require("./document-files.cjs");
+const { createCertificateStore } = require("./certificate-store.cjs");
 
 if (!app.isPackaged && process.env.FOLIO_TEST_USER_DATA) app.setPath("userData", process.env.FOLIO_TEST_USER_DATA);
 // Automated tests drive a window that never appears, so a local run doesn't take over the screen or focus.
@@ -522,11 +523,13 @@ async function downloadPdf(url, approvedLocal, signal) {
 }
 
 // Signing with a .p12/.pfx certificate. The page sees only the file's name and the certificate's public details;
-// the file stays here, and the password is used for one call and never kept.
+// the file stays here, and the password is used for one call and never kept. Remembered certificates
+// (certificate-store.cjs) keep their path and public details in userData, and the page names them by id only.
 function registerDigitalSigning(handle) {
   // Loaded on first use: node-forge, pdf-lib and the QR encoder aren't needed to start Folio.
   let loaded = null;
   const signing = () => (loaded ??= require("./digital-signature.cjs"));
+  const store = createCertificateStore(path.join(app.getPath("userData"), "certificates.json"));
   let certificate = null;
   const result = async (work) => {
     try { return await work(); } catch (error) {
@@ -537,32 +540,55 @@ function registerDigitalSigning(handle) {
     if (!certificate || typeof id !== "string" || id !== certificate.id) throw new signing().CertificateError("Choose the certificate again.");
     return certificate;
   };
+  const load = async (file) => {
+    checkDiskPath(file);
+    const data = await readRegular(file, signing().MAX_CERTIFICATE_BYTES);
+    certificate = { id: crypto.randomUUID(), name: path.basename(file), path: file, data };
+    return { id: certificate.id, name: certificate.name, saved: store.has(file) };
+  };
   handle("folio:signing-choose-certificate", () => result(async () => {
     const picked = await dialog.showOpenDialog(win, { title: "Choose your certificate", properties: ["openFile"],
       filters: [{ name: "Certificates (.p12, .pfx)", extensions: ["p12", "pfx"] }] });
     if (picked.canceled || !picked.filePaths[0]) return null;
-    const file = picked.filePaths[0];
-    let data;
-    try { checkDiskPath(file); data = await readRegular(file, signing().MAX_CERTIFICATE_BYTES); }
+    try { return await load(picked.filePaths[0]); }
     catch { throw new signing().CertificateError("Couldn't read that certificate file."); }
-    certificate = { id: crypto.randomUUID(), name: path.basename(file), data };
-    return { id: certificate.id, name: certificate.name };
   }));
+  handle("folio:signing-saved-certificates", () => store.list());
+  handle("folio:signing-use-saved", (_event, savedId) => result(async () => {
+    const entry = store.find(savedId);
+    if (!entry) throw new signing().CertificateError("That saved certificate isn't available anymore. Choose the file again.");
+    try { return await load(entry.path); }
+    catch {
+      if (fs.existsSync(entry.path)) throw new signing().CertificateError("Couldn't read that certificate file.");
+      return { error: `“${path.basename(entry.path)}” isn't where it was saved. It may have been moved, renamed, or deleted. Choose it again.`,
+        missing: true };
+    }
+  }));
+  handle("folio:signing-forget-saved", (_event, savedId) => {
+    if (typeof savedId === "string") store.forget(savedId);
+    return store.list();
+  });
   handle("folio:signing-read-certificate", (_event, id, password) => result(() => {
     if (typeof password !== "string") throw new signing().CertificateError("Enter the certificate's password.");
     return signing().readP12(chosen(id).data, password);
   }));
   handle("folio:signing-forget", () => { certificate = null; return true; });
   handle("folio:signing-sign", (_event, request) => result(async () => {
-    const { id, password, pdf, page, rect, field, reason, location, name } = request ?? {};
+    const { id, password, pdf, page, rect, field, reason, location, name, remember } = request ?? {};
     if (typeof password !== "string") throw new signing().CertificateError("Enter the certificate's password.");
     // A field name from the page only picks an existing, unsigned signature field; signPdf checks that it is one.
     if (field !== undefined && (typeof field !== "string" || !field || field.length > signing().MAX_FIELD_NAME || /[\u0000-\u001f]/.test(field))) {
       throw new signing().CertificateError("That signature field isn't valid. Choose another stamp position.");
     }
     if (!(pdf instanceof Uint8Array) || pdf.length > MAX_DOCUMENT_BYTES) throw new signing().CertificateError("This document is too large to sign.");
-    const signed = await signing().signPdf(pdf, { p12: chosen(id).data, password, page, rect, field,
+    const identity = chosen(id);
+    const signed = await signing().signPdf(pdf, { p12: identity.data, password, page, rect, field,
       reason: typeof reason === "string" ? reason : "", location: typeof location === "string" ? location : "" });
+    // Remembered once it has signed: the password was right and the certificate is valid. A file already in the list
+    // gets its details refreshed (a renewed certificate saved over the old file).
+    if (remember === true || store.has(identity.path)) {
+      try { store.remember(identity.path, signing().readP12(identity.data, password)); } catch { /* signing matters more than the list */ }
+    }
     const suggested = safePdfName(String(typeof name === "string" ? name : "").replace(/\.pdf$/i, "") + "-firmado", "documento-firmado.pdf");
     const target = await dialog.showSaveDialog(win, { title: "Save signed copy", defaultPath: path.join(app.getPath("documents"), suggested),
       filters: [{ name: "PDF", extensions: ["pdf"] }] });

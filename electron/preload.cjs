@@ -60,6 +60,9 @@ contextBridge.exposeInMainWorld("folioDesktop", {
   /** Each call resolves to { error } on failure; chooseCertificate and sign resolve to null when the user cancels. */
   signing: {
     chooseCertificate: () => ipcRenderer.invoke("folio:signing-choose-certificate"),
+    savedCertificates: () => ipcRenderer.invoke("folio:signing-saved-certificates"),
+    useSaved: (savedId) => ipcRenderer.invoke("folio:signing-use-saved", savedId),
+    forgetSaved: (savedId) => ipcRenderer.invoke("folio:signing-forget-saved", savedId),
     readCertificate: (id, password) => ipcRenderer.invoke("folio:signing-read-certificate", id, password),
     forget: () => ipcRenderer.invoke("folio:signing-forget"),
     async sign(request) {

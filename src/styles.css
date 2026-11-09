@@ -1659,12 +1659,63 @@ kbd {
   .version-panel { position: absolute; inset: 0 0 0 auto; width: min(340px, 92%); z-index: 12; box-shadow: var(--shadow-md); }
 }
 
-/* Sign digitally (certificate signatures) */
-.digital-signature { display: grid; gap: 12px; padding: 0 14px 4px; width: min(420px, 80vw); }
-.digital-signature > p { margin: 0; line-height: 1.5; }
-.digital-signature-file { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-size: 13px; }
+/* Sign digitally (certificate signatures). Every row may hold a long name (people's full names, issuers, file names
+   like "NOMBRE COMPLETO 1312242900-070324130853.p12"), so columns are allowed to shrink and text wraps or ellipsizes. */
+.digital-signature { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 0 14px 4px; min-width: 0; }
+.digital-signature > * { min-width: 0; }
+.digital-signature > p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.digital-signature-file { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-size: 13px; }
+.digital-signature-file > svg, .digital-signature-file > button { flex: none; }
 .digital-signature-file span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .digital-signature .signature-field input { min-width: 0; width: 100%; height: 34px; padding: 0 10px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); border-radius: 7px; font: 13px var(--font); outline: none; }
 .digital-signature .signature-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.digital-signature .info-list { margin: 0; }
-.digital-signature .form-error { color: var(--accent-text); margin: 0; }
+.digital-signature .signature-field select { text-overflow: ellipsis; }
+.digital-signature .info-list { margin: 0; padding: 0; }
+.digital-signature .info-list > div { grid-template-columns: 90px minmax(0, 1fr); }
+.digital-signature .info-list dd { overflow-wrap: anywhere; }
+.digital-signature .form-error { color: var(--accent-text); margin: 0; overflow-wrap: anywhere; }
+.digital-signature .form-actions { margin-top: 6px; flex-wrap: wrap; }
+.digital-signature-choose { justify-self: start; display: inline-flex; align-items: center; gap: 7px; max-width: 100%; }
+.saved-certificates h3 { margin: 0 0 6px; color: var(--text-2); font-size: 11px; font-weight: 600; }
+.saved-certificates ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.saved-certificates li { display: flex; align-items: center; gap: 4px; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding-right: 6px; }
+.saved-certificates li > .pill-btn { flex: none; }
+.saved-certificate { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; border-radius: 9px; text-align: left; color: var(--text); }
+.saved-certificate:hover:not(:disabled) { background: var(--hover); }
+.saved-certificate > svg { flex: none; margin-top: 2px; color: var(--text-3); }
+.saved-certificate-text { display: grid; gap: 1px; min-width: 0; }
+.saved-certificate-text strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.saved-certificate-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-size: 11px; }
+.saved-certificate-text em { font-style: normal; color: var(--accent-text); }
+.saved-certificates li[data-missing] .saved-certificate-text strong { color: var(--text-2); }
+
+/* Placing the stamp: a box over the page (in the viewer's scroll area) and a bar with Sign / Cancel. */
+.stamp-box { position: absolute; z-index: 6; display: flex; align-items: center; gap: 0.6em; padding: 0.35em; box-sizing: border-box;
+  background: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.85)); outline: 2px dashed var(--accent); outline-offset: 0;
+  border-radius: 2px; color: #1c1b19; cursor: move; touch-action: none; user-select: none; overflow: hidden; }
+.stamp-box:focus-visible { outline-style: solid; box-shadow: 0 0 0 4px var(--accent-soft); }
+.stamp-box[data-busy] { cursor: progress; opacity: 0.7; }
+.stamp-qr { flex: none; height: 100%; aspect-ratio: 1; background: repeating-conic-gradient(#1c1b19 0 25%, transparent 0 50%) 0 0 / 25% 25%; opacity: 0.55; }
+.stamp-text { display: grid; min-width: 0; line-height: 1.2; }
+.stamp-text small { font-size: 0.8em; }
+.stamp-text strong { overflow: hidden; text-overflow: ellipsis; font-size: 1em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.stamp-resize { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; background: var(--accent); cursor: nwse-resize;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.stamp-placement-bar { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 16px;
+  width: max-content; max-width: calc(100vw - 24px); padding: 12px 14px 12px 18px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow-lg); font-size: 13px; }
+.stamp-placement-text { display: grid; gap: 2px; min-width: 0; }
+.stamp-placement-text > span { color: var(--text-2); font-size: 12px; }
+.stamp-placement-text .form-error { color: var(--accent-text); }
+.stamp-placement-bar .form-actions { margin: 0; flex: none; }
+@media (max-width: 640px) {
+  .stamp-placement-bar { flex-wrap: wrap; width: calc(100vw - 24px); }
+  .stamp-placement-bar .form-actions { flex: 1; }
+}
+
+/* The Sign button opens a small menu when Folio can also sign with a certificate. */
+.sign-menu .menu.dropdown { left: 0; right: auto; min-width: 210px; }
+.segmented .sign-menu > button { display: flex; }
+.segmented .sign-menu > button > svg:last-child { margin-left: -2px; color: var(--text-3); }
+.segmented .sign-menu .menu button { height: auto; padding: 7px 10px; font-weight: 450; color: var(--text); box-shadow: none; }
+.segmented .sign-menu .menu button:hover, .segmented .sign-menu .menu button:focus-visible { background: var(--hover); }

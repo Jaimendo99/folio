@@ -2,7 +2,7 @@ import { activeDocument, setActiveDocument } from "./session";
 import { getRecent } from "./recent";
 
 export type OpenSource =
-  | { kind: "bytes"; name: string; data: Uint8Array; note?: string; password?: string }
+  | { kind: "bytes"; name: string; data: Uint8Array; note?: string; password?: string; page?: number }
   | { kind: "blob"; name: string; blob: Blob; recentId?: string }
   | { kind: "word"; name: string; file: File }
   | { kind: "url"; name: string; url: string }
