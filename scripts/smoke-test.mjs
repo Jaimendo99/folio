@@ -204,8 +204,13 @@ try {
     g.stroke();
     return canvas.toDataURL("image/png").split(",")[1];
   });
+  // Open the Sign menu in the narrow toolbar layout, which hides button labels; the menu items must keep theirs.
+  const signViewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  await page.window.setViewportSize({ width: 1000, height: signViewport.height });
   await page.getByTitle("Add a signature").click();
+  await page.getByRole("menuitem", { name: "Digital signature (certificate)" }).waitFor();
   await page.getByRole("menuitem", { name: "Handwritten signature" }).click();
+  await page.window.setViewportSize(signViewport);
   await page.locator('input[aria-label="Upload signature photo"]').setInputFiles({ name: "signature.png", mimeType: "image/png", buffer: Buffer.from(photo, "base64") });
   await page.getByRole("button", { name: /Use this signature/ }).click();
   await page.locator('select[aria-label="Signature placement"]').selectOption("manual");

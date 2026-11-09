@@ -1718,4 +1718,6 @@ kbd {
 .segmented .sign-menu > button { display: flex; }
 .segmented .sign-menu > button > svg:last-child { margin-left: -2px; color: var(--text-3); }
 .segmented .sign-menu .menu button { height: auto; padding: 7px 10px; font-weight: 450; color: var(--text); box-shadow: none; }
+/* The menu sits inside the toolbar, whose narrow layout hides button labels; the menu always needs them. */
+.segmented .sign-menu .menu button span { display: inline; }
 .segmented .sign-menu .menu button:hover, .segmented .sign-menu .menu button:focus-visible { background: var(--hover); }
