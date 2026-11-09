@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.17.1
+
+- The **Sign** menu shows its labels again in narrower windows, instead of icons only.
+
 ## 1.17.0
 
 - In **Sign → Digital signature (certificate)**, sign a PDF with your .p12 or .pfx certificate, such as the ones issued in Ecuador. Drag the stamp where you want it on the page; it shows a QR code with the signer, issuer, and date. The signed copy is saved as a new file.
