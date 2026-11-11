@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.18.0
+
+- Folio is now available in Spanish. It follows your computer's language, or choose one in **Settings → General → Language** (System, English, or Español). The change applies right away, in every open tab and in the app menus.
+
 ## 1.17.1
 
 - The **Sign** menu shows its labels again in narrower windows, instead of icons only.
