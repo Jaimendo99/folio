@@ -2,6 +2,8 @@
 // files served over app://.
 const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, screen, session } = require("electron");
 const crypto = require("node:crypto");
+const i18n = require("./i18n.cjs");
+const t = i18n.t;
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
@@ -99,7 +101,7 @@ async function sendFile(file) {
     const data = await readRegular(await fs.promises.realpath(file));
     if (!target.isDestroyed()) target.webContents.send("folio:open-file", { name: path.basename(file), data });
   } catch (err) {
-    dialog.showErrorBox("Couldn't open file", `${file}\n\n${err.userMessage ?? err.message}`);
+    dialog.showErrorBox(t("openFile"), `${file}\n\n${err.userMessage ?? err.message}`);
   }
 }
 
@@ -297,8 +299,8 @@ function createWindow() {
     if (contents !== cameraOwner || permission !== "media" || !details.isMainFrame
       || !trustedCameraOrigin(details.requestingUrl) || !details.mediaTypes?.length
       || details.mediaTypes.some(type => type !== "video")) return callback(false);
-    dialog.showMessageBox(win, { type: "question", title: "Use camera for signature?", message: "Allow Folio to use your camera to capture a signature?",
-      detail: "Camera images are processed on this device. No microphone is requested.", buttons: ["Allow camera", "Cancel"], defaultId: 1, cancelId: 1 })
+    dialog.showMessageBox(win, { type: "question", title: t("cameraTitle"), message: t("cameraMessage"),
+      detail: t("cameraDetail"), buttons: [t("allowCamera"), t("cancel")], defaultId: 1, cancelId: 1 })
       .then(result => callback(result.response === 0)).catch(() => callback(false));
   });
 
@@ -363,12 +365,12 @@ function createWindow() {
   win.webContents.on("will-prevent-unload", (e) => {
     const choice = dialog.showMessageBoxSync(win, {
       type: "question",
-      buttons: ["Close without saving", "Cancel"],
+      buttons: [t("closeWithoutSaving"), t("cancel")],
       defaultId: 1,
       cancelId: 1,
-      title: "Unsaved changes",
-      message: "One or more tabs have unsaved changes.",
-      detail: `Press ${IS_MAC ? "⌘S" : "Ctrl+S"} in each marked tab to save a copy before closing Folio.`,
+      title: t("unsavedTitle"),
+      message: t("unsavedMessage"),
+      detail: t("unsavedDetail", { shortcut: IS_MAC ? "⌘S" : "Ctrl+S" }),
     });
     if (choice === 0) e.preventDefault();
   });
@@ -397,10 +399,10 @@ async function openLink(rawUrl) {
     const mail = url.protocol === "mailto:";
     const { response } = await dialog.showMessageBox(win, {
       type: "question",
-      title: "Open link?",
-      message: mail ? "Open this email link in your mail app?" : `Open ${url.host} in your browser?`,
+      title: t("openLinkTitle"),
+      message: mail ? t("openMailMessage") : t("openBrowserMessage", { host: url.host }),
       detail: shortUrl(url),
-      buttons: [mail ? "Open mail app" : "Open link", "Cancel"],
+      buttons: [mail ? t("openMail") : t("openLink"), t("cancel")],
       defaultId: 0,
       cancelId: 1,
     }).finally(() => { askingAboutLink = false; });
@@ -415,10 +417,10 @@ async function confirmLocalAddress(url, addresses, signal) {
   const { response } = await dialog.showMessageBox(win, {
     signal, // closing the tab that asked dismisses the question, as if Cancel was chosen
     type: "warning",
-    title: "Open a local address?",
-    message: `Open ${url.host}?`,
-    detail: `Allow ${url.origin} to connect to the following resolved addresses?\n\n${addresses.join(", ")}\n\n${shortUrl(url)}`,
-    buttons: ["Open", "Cancel"],
+    title: t("localTitle"),
+    message: t("localMessage", { host: url.host }),
+    detail: t("localDetail", { origin: url.origin, addresses: addresses.join(", "), url: shortUrl(url) }),
+    buttons: [t("open"), t("cancel")],
     defaultId: 1,
     cancelId: 1,
   });
@@ -547,8 +549,8 @@ function registerDigitalSigning(handle) {
     return { id: certificate.id, name: certificate.name, saved: store.has(file) };
   };
   handle("folio:signing-choose-certificate", () => result(async () => {
-    const picked = await dialog.showOpenDialog(win, { title: "Choose your certificate", properties: ["openFile"],
-      filters: [{ name: "Certificates (.p12, .pfx)", extensions: ["p12", "pfx"] }] });
+    const picked = await dialog.showOpenDialog(win, { title: t("chooseCertificate"), properties: ["openFile"],
+      filters: [{ name: t("certificates"), extensions: ["p12", "pfx"] }] });
     if (picked.canceled || !picked.filePaths[0]) return null;
     try { return await load(picked.filePaths[0]); }
     catch { throw new signing().CertificateError("Couldn't read that certificate file."); }
@@ -590,7 +592,7 @@ function registerDigitalSigning(handle) {
       try { store.remember(identity.path, signing().readP12(identity.data, password)); } catch { /* signing matters more than the list */ }
     }
     const suggested = safePdfName(String(typeof name === "string" ? name : "").replace(/\.pdf$/i, "") + "-firmado", "documento-firmado.pdf");
-    const target = await dialog.showSaveDialog(win, { title: "Save signed copy", defaultPath: path.join(app.getPath("documents"), suggested),
+    const target = await dialog.showSaveDialog(win, { title: t("saveSigned"), defaultPath: path.join(app.getPath("documents"), suggested),
       filters: [{ name: "PDF", extensions: ["pdf"] }] });
     if (target.canceled || !target.filePath) return null;
     const file = /\.pdf$/i.test(target.filePath) ? target.filePath : target.filePath + ".pdf";
@@ -639,6 +641,12 @@ if (!app.requestSingleInstanceLock()) {
     });
     const on = (channel, listener) => ipcMain.on(channel, (event, ...args) => {
       if (isTrustedSender(event)) listener(event, ...args);
+    });
+
+    i18n.setLanguage("system", app.getLocale());
+    on("folio:system-locale", event => { event.returnValue = app.getLocale(); });
+    on("folio:language", (_event, choice) => {
+      if (["system", "en", "es"].includes(choice)) i18n.setLanguage(choice, app.getLocale());
     });
 
     ai.register(handle, (channel, payload) => win?.webContents.send(channel, payload));

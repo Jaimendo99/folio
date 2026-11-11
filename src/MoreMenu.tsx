@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./icons";
 
@@ -34,8 +35,8 @@ export function MoreMenu({ items, label }: { items: MoreItem[]; label?: string }
         onClick={() => setOpen(!open)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={label ?? "More"}
-        title={label ?? "More"}
+        aria-label={label ?? t("more")}
+        title={label ?? t("more")}
       >
         {label ? <>{label}<Icon name="chevronDown" size={13} /></> : <Icon name="more" />}
       </button>

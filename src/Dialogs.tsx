@@ -1,3 +1,4 @@
+import { locale } from "./i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "./pdf";
 import { Icon } from "./icons";
@@ -73,7 +74,7 @@ function parsePdfDate(s?: string) {
   const m = s?.match(/D:(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?/);
   if (!m) return null;
   const d = new Date(+m[1], +(m[2] ?? 1) - 1, +(m[3] ?? 1), +(m[4] ?? 0), +(m[5] ?? 0));
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return d.toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function InfoDialog({ pdf, name, size, onClose }: { pdf: PDFDocumentProxy; name: string; size: number; onClose: () => void }) {

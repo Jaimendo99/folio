@@ -68,7 +68,8 @@
     "appId": "app.folio.reader",
     "productName": "Folio",
     "electronLanguages": [
-      "en-US"
+      "en-US",
+      "es"
     ],
     "directories": {
       "output": "release",

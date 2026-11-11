@@ -1,3 +1,4 @@
+import { locale } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { saveAiPreference } from "./ai";
 import { readSetting } from "./preferences";
@@ -40,7 +41,7 @@ function ModelPicker({ ai }: { ai: FolioAi }) {
     <div className="router-models" aria-label="Available models">
       {matches.map(m => <button key={m.id} onClick={() => select(m.id)}>
         <span>{m.name}<small>{m.id}</small></span>
-        {m.contextLength && <small title="Context window in tokens">{m.contextLength.toLocaleString()} tokens</small>}
+        {m.contextLength && <small title="Context window in tokens">{m.contextLength.toLocaleString(locale())} tokens</small>}
       </button>)}
       {custom && <button onClick={() => select(typed)}>Use {typed}</button>}
     </div>

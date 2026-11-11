@@ -1,3 +1,4 @@
+import { locale, t } from "./i18n";
 import { useEffect, useState } from "react";
 import { clearRecent, listRecent, removeRecent, type RecentFile } from "./recent";
 import { Icon } from "./icons";
@@ -5,20 +6,20 @@ import { keys } from "./platform";
 import { formatBytes } from "./Dialogs";
 import { updateSummary } from "./updates";
 
-function timeAgo(t: number) {
-  const s = (Date.now() - t) / 1000;
-  if (s < 60) return "Just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  if (s < 86400 * 7) return `${Math.floor(s / 86400)}d ago`;
-  return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function timeAgo(timestamp: number) {
+  const s = (Date.now() - timestamp) / 1000;
+  if (s < 60) return t("justNow");
+  if (s < 3600) return t("minutesAgo", { count: Math.floor(s / 60) });
+  if (s < 86400) return t("hoursAgo", { count: Math.floor(s / 3600) });
+  if (s < 86400 * 7) return t("daysAgo", { count: Math.floor(s / 86400) });
+  return new Date(timestamp).toLocaleDateString(locale(), { month: "short", day: "numeric" });
 }
 
 function UpdateLine({ status }: { status: UpdateStatus }) {
   const desktop = window.folioDesktop!;
   const check = (
     <button className="link version-action" onClick={() => desktop.checkForUpdates()}>
-      Check for updates
+      {t("checkUpdates")}
     </button>
   );
   switch (status.state) {
@@ -27,16 +28,16 @@ function UpdateLine({ status }: { status: UpdateStatus }) {
         <>
           {" · "}
           <button className="link version-action" onClick={() => desktop.installUpdate()}>
-            Restart to update to {status.version}
+            {t("restartUpdate", { version: status.version ?? "" })}
           </button>
         </>
       );
     case "latest":
-      return <> · Up to date · {check}</>;
+      return <> · {t("upToDate")} · {check}</>;
     case "error":
       return (
         <>
-          <span title={status.message}> · Couldn't check for updates</span> · {check}
+          <span title={status.message}> · {t("updateFailed")}</span> · {check}
         </>
       );
     case "available":
@@ -44,7 +45,7 @@ function UpdateLine({ status }: { status: UpdateStatus }) {
         <>
           {" · "}
           <button className="link version-action" onClick={() => void desktop.openDownload()}>
-            Download Folio {status.version}
+            {t("downloadFolio", { version: status.version ?? "" })}
           </button>
         </>
       );
@@ -91,8 +92,8 @@ export function Welcome({ active, onPick, onOpenUrl, onOpenRecent, onSample, loa
     <div className="welcome">
       <div className="welcome-inner">
         <div className="hero">
-          <h1>Read beautifully.</h1>
-          <p>A calm, fast PDF reader. Your files never leave this device.</p>
+          <h1>{t("hero")}</h1>
+          <p>{t("heroHint")}</p>
         </div>
 
         <button className="dropzone" onClick={onPick} disabled={loading}>
@@ -100,35 +101,35 @@ export function Welcome({ active, onPick, onOpenUrl, onOpenRecent, onSample, loa
             <Icon name={loading ? "file" : "upload"} size={26} />
           </div>
           <div className="dropzone-text">
-            <strong>{loading ? "Opening…" : "Open a PDF"}</strong>
-            <span>{window.folioDesktop ? "Drop a PDF, a Word document, a link, or a webpage anywhere, or click to browse"
-              : "Drop a PDF, a link, or a webpage anywhere, or click to browse"}</span>
+            <strong>{loading ? t("opening") : t("openPdf")}</strong>
+            <span>{window.folioDesktop ? t("dropDesktop")
+              : t("dropWeb")}</span>
           </div>
           <kbd>{keys("Ctrl O")}</kbd>
         </button>
 
         <div className="welcome-links">
           <button className="link" onClick={onOpenUrl} disabled={loading}>
-            <Icon name="link" size={15} /> Open from URL
+            <Icon name="link" size={15} /> {t("openUrl")}
           </button>
           <button className="link" onClick={onSample}>
-            <Icon name="book" size={15} /> Try a sample document
+            <Icon name="book" size={15} /> {t("sample")}
           </button>
         </div>
 
         {recent.length > 0 && (
           <section className="recent">
             <div className="recent-head">
-              <h3>Recent</h3>
+              <h3>{t("recent")}</h3>
               <button
                 className="link"
                 onClick={async () => {
-                  if (!confirm("Remove all recent files from Folio? The original files aren't affected.")) return;
+                  if (!confirm(t("clearRecent"))) return;
                   await clearRecent();
                   setRecent([]);
                 }}
               >
-                Clear all
+                {t("clearAll")}
               </button>
             </div>
             <div className="recent-grid">
@@ -143,12 +144,12 @@ export function Welcome({ active, onPick, onOpenUrl, onOpenRecent, onSample, loa
                   <div className="recent-meta">
                     <strong title={f.name}>{f.name.replace(/\.pdf$/i, "")}</strong>
                     <span>
-                      {timeAgo(f.openedAt)} · {f.pages} {f.pages === 1 ? "page" : "pages"} · {formatBytes(f.size)}
+                      {timeAgo(f.openedAt)} · {f.pages} {f.pages === 1 ? t("page") : t("pages")} · {formatBytes(f.size)}
                     </span>
                   </div>
                   <button
                     className="recent-remove"
-                    title="Remove from recent"
+                    title={t("removeRecent")}
                     onClick={(e) => {
                       e.stopPropagation();
                       forget(f.id);

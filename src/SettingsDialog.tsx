@@ -1,3 +1,4 @@
+import { locale, t, useLanguage, setLanguage, type Language } from "./i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Modal } from "./Dialogs";
 import { CLAUDE_CODE_URL, PROVIDERS, savedProvider, saveAiPreference, signInChatGPT, USAGE_URL, type AiProvider } from "./ai";
@@ -148,6 +149,7 @@ function StoredData() {
 }
 
 export function SettingsDialog({ initialSection = "General", theme, onTheme, night, onNight, wheelPaging, onWheelPaging, scanLanguages, onScanLanguages, onOpenChangelog, onClose }: Props) {
+  const language = useLanguage();
   const desktop = window.folioDesktop;
   const ai = desktop?.ai;
   const [error, setError] = useState<string | null>(null);
@@ -189,28 +191,32 @@ export function SettingsDialog({ initialSection = "General", theme, onTheme, nig
   });
 
   return (
-    <Modal title="Settings" onClose={onClose}>
+    <Modal title={t("settings")} onClose={onClose}>
       <div className="settings">
         <nav className="settings-nav" aria-label="Settings sections">
           {(["General", "Ask AI", "Storage"] as const).filter(name => name !== "Ask AI" || ai).map(name =>
             <button key={name} type="button" aria-current={section === name ? "page" : undefined}
-              onClick={() => { setSection(name); setError(null); }}>{name}</button>)}
+              onClick={() => { setSection(name); setError(null); }}>{name === "General" ? t("general") : name === "Storage" ? t("storage") : name}</button>)}
         </nav>
-        {section === "General" && <><Section title="Appearance">
-          <Row label="Theme">
-            <Choice label="Theme" value={theme === "dark" ? "dark" : "light"} onChange={onTheme}
-              options={[{ id: "light", name: "Light" }, { id: "dark", name: "Dark" }]} />
+        {section === "General" && <><Section title={t("language")} >
+          <Row label={t("language")}><Choice label={t("language")} value={language} onChange={(value: Language) => {
+            if (!setLanguage(value)) setError(t("languageSaveFailed"));
+          }} options={[{ id: "system", name: t("system") }, { id: "en", name: t("english") }, { id: "es", name: t("spanish") }]} /></Row>
+        </Section><Section title={t("appearance")}>
+          <Row label={t("theme")}>
+            <Choice label={t("theme")} value={theme === "dark" ? "dark" : "light"} onChange={onTheme}
+              options={[{ id: "light", name: t("light") }, { id: "dark", name: t("dark") }]} />
           </Row>
-          <Row label="PDF dark mode" hint="Dims bright pages for night reading. Images keep their colors.">
-            <Switch label="PDF dark mode" checked={night} onChange={onNight} />
+          <Row label={t("darkMode")} hint={t("darkModeHint")}>
+            <Switch label={t("darkMode")} checked={night} onChange={onNight} />
           </Row>
         </Section>
 
-        <Section title="Reading">
-          <Row label="Scroll one page at a time" hint="Turn a page with each mouse wheel click or trackpad swipe.">
-            <Switch label="Scroll one page at a time" checked={wheelPaging} onChange={onWheelPaging} />
+        <Section title={t("reading")}>
+          <Row label={t("wheel")} hint={t("wheelHint")}>
+            <Switch label={t("wheel")} checked={wheelPaging} onChange={onWheelPaging} />
           </Row>
-          <Row label="Scan languages" hint="Download languages once to recognize scans offline.">
+          <Row label={t("scan")} hint={t("scanHint")}>
             <ScanLanguagePicker value={scanLanguages} onChange={onScanLanguages} />
           </Row>
         </Section>
@@ -287,7 +293,7 @@ export function SettingsDialog({ initialSection = "General", theme, onTheme, nig
                 }} />
               </Row>
             )}
-            <Row label={`Folio ${info?.version ?? ""}`.trim()} hint={updateSummary(status) || (status.checkedAt ? `Last checked ${new Date(status.checkedAt).toLocaleString()}` : undefined)}>
+            <Row label={`Folio ${info?.version ?? ""}`.trim()} hint={updateSummary(status) || (status.checkedAt ? `Last checked ${new Date(status.checkedAt).toLocaleString(locale())}` : undefined)}>
               {updatable ? (
                 <button className="btn ghost" disabled={status.state === "checking" || status.state === "downloading"}
                   onClick={() => status.state === "ready" ? desktop.installUpdate() : status.state === "available" ? void desktop.openDownload() : desktop.checkForUpdates()}>

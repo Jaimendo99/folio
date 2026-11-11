@@ -1,3 +1,4 @@
+import { useLanguage } from "./i18n";
 import { createRoot } from "react-dom/client";
 import { DocumentTabs, type ReaderFrame } from "./documentTabs";
 import { takeUpgradeNotes } from "./releaseNotes";
@@ -23,7 +24,11 @@ if (reader) {
     const app = createRoot(root);
     frame.disposeReader = () => app.unmount();
     const upgradeNotes = desktop && reader.tabs.active === reader.key ? takeUpgradeNotes() : [];
-    app.render(<App tabs={reader.tabs} tabKey={reader.key} upgradeNotes={upgradeNotes} />);
+    function LocalizedApp() {
+      useLanguage();
+      return <App tabs={reader!.tabs} tabKey={reader!.key} upgradeNotes={upgradeNotes} />;
+    }
+    app.render(<LocalizedApp />);
   });
 } else {
   void new DocumentTabs(root).start();

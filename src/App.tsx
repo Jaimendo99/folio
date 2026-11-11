@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   EventBus,
@@ -1381,24 +1382,24 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
             items={[
               ...(doc
                 ? ([
-                    ...(navigation.back ? [{ kind: "action", icon: "chevronLeft", label: "Back", shortcut: keys("Alt+←"), onSelect: () => navigationRef.current?.back() }] : []),
-                    ...(navigation.forward ? [{ kind: "action", icon: "chevronRight", label: "Forward", shortcut: keys("Alt+→"), onSelect: () => navigationRef.current?.forward() }] : []),
+                    ...(navigation.back ? [{ kind: "action", icon: "chevronLeft", label: t("back"), shortcut: keys("Alt+←"), onSelect: () => navigationRef.current?.back() }] : []),
+                    ...(navigation.forward ? [{ kind: "action", icon: "chevronRight", label: t("forward"), shortcut: keys("Alt+→"), onSelect: () => navigationRef.current?.forward() }] : []),
                     ...(navigation.back || navigation.forward ? [{ kind: "divider" }] : []),
-                    { kind: "action", icon: "plus", label: "New tab", shortcut: keys("Ctrl T"), onSelect: () => tabs.library() },
-                    { kind: "action", icon: "close", label: "Close document", shortcut: keys("Ctrl W"), onSelect: () => void tabs.close(tabKey) },
+                    { kind: "action", icon: "plus", label: t("newTab"), shortcut: keys("Ctrl T"), onSelect: () => tabs.library() },
+                    { kind: "action", icon: "close", label: t("closeDocument"), shortcut: keys("Ctrl W"), onSelect: () => void tabs.close(tabKey) },
                     { kind: "divider" },
-                    { kind: "action", icon: "download", label: "Save a copy", shortcut: keys("Ctrl S"), onSelect: download },
-                    { kind: "action", icon: "history", label: "Version history", onSelect: () => { setAiOpen(false); setHistoryOpen(true); } },
-                    { kind: "action", icon: "print", label: "Print", shortcut: keys("Ctrl P"), onSelect: print },
-                    { kind: "action", icon: "info", label: "Document info", onSelect: () => setDialog("info") },
+                    { kind: "action", icon: "download", label: t("saveCopy"), shortcut: keys("Ctrl S"), onSelect: download },
+                    { kind: "action", icon: "history", label: t("history"), onSelect: () => { setAiOpen(false); setHistoryOpen(true); } },
+                    { kind: "action", icon: "print", label: t("print"), shortcut: keys("Ctrl P"), onSelect: print },
+                    { kind: "action", icon: "info", label: t("info"), onSelect: () => setDialog("info") },
                     { kind: "divider" },
-                    { kind: "toggle", icon: "moon", label: "PDF dark mode", checked: night, onSelect: () => setNightTo(!night) },
-                    { kind: "action", icon: "expand", label: "Focus mode", shortcut: "F", onSelect: toggleFocus },
+                    { kind: "toggle", icon: "moon", label: t("darkMode"), checked: night, onSelect: () => setNightTo(!night) },
+                    { kind: "action", icon: "expand", label: t("focus"), shortcut: "F", onSelect: toggleFocus },
                   ] as MoreItem[])
                 : []),
-              { kind: "action", icon: "settings", label: "Settings", shortcut: keys("Ctrl ,"), onSelect: () => setDialog("settings") },
-              { kind: "action", icon: "keyboard", label: "Keyboard shortcuts", shortcut: "?", onSelect: () => setDialog("shortcuts") },
-              { kind: "action", icon: "info", label: "About Folio", onSelect: () => setDialog("about") },
+              { kind: "action", icon: "settings", label: t("settings"), shortcut: keys("Ctrl ,"), onSelect: () => setDialog("settings") },
+              { kind: "action", icon: "keyboard", label: t("shortcuts"), shortcut: "?", onSelect: () => setDialog("shortcuts") },
+              { kind: "action", icon: "info", label: t("about"), onSelect: () => setDialog("about") },
             ]}
           />
         </div>

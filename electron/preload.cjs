@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld("folioDesktop", {
   openDocument: (file) => ipcRenderer.invoke("folio:open-document", webUtils.getPathForFile(file)),
   ready: () => ipcRenderer.invoke("folio:ready"),
   platform: process.platform,
+  systemLocale: ipcRenderer.sendSync("folio:system-locale"),
+  setLanguage: (language) => ipcRenderer.send("folio:language", language),
   openDownload: () => ipcRenderer.invoke("folio:open-download"),
   downloadOcrModel: (code) => ipcRenderer.invoke("folio:download-ocr-model", code),
   /**

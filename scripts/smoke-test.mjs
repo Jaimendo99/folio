@@ -70,7 +70,26 @@ try {
     console.error(error.stack ?? String(error));
     failures.push(String(error));
   });
+  await page.window.locator("iframe.document-reader.active").waitFor({ timeout: 30_000 });
+  // The rest of this smoke test uses English labels regardless of the machine's locale.
+  await page.window.evaluate(() => localStorage.setItem("folio:language", "en"));
+  await page.reload();
   await page.getByRole("button", { name: /Try a sample/ }).waitFor({ timeout: 30_000 });
+
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Settings/ }).click();
+  await page.getByRole("radio", { name: "Español" }).click();
+  await page.getByRole("dialog", { name: "Configuración" }).waitFor();
+  await page.getByRole("heading", { name: "Disfruta la lectura." }).waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("folio:language")), "es");
+  await page.reload();
+  await page.getByRole("heading", { name: "Disfruta la lectura." }).waitFor();
+  await page.getByRole("button", { name: "Más", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Configuración/ }).click();
+  await page.getByRole("radio", { name: "English" }).click();
+  await page.getByRole("dialog", { name: "Settings" }).waitFor();
+  await page.keyboard.press("Escape");
+  console.log("ok  language switches immediately and survives a reload");
 
   const platformClass = await page.evaluate(() => [...document.documentElement.classList].find((c) => c.startsWith("platform-")));
   assert.equal(platformClass, `platform-${process.platform}`);

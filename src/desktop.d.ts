@@ -27,6 +27,8 @@ interface FolioDesktop {
     notifyOnly: boolean }>;
   /** "win32", "darwin", or "linux". */
   platform: string;
+  systemLocale: string;
+  setLanguage(language: "system" | "en" | "es"): void;
   /** Opens the releases page (macOS, where updates are downloaded manually). */
   openDownload(): Promise<void>;
   downloadOcrModel(code: string): Promise<Uint8Array<ArrayBuffer>>;

@@ -1,3 +1,4 @@
+import { locale } from "./i18n";
 import { useEffect, useState } from "react";
 import { Modal } from "./Dialogs";
 import { Icon } from "./icons";
@@ -11,7 +12,7 @@ export interface DigitalSignRequest {
   field?: string;
 }
 
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+const day = (iso: string) => new Date(iso).toLocaleDateString(locale(), { year: "numeric", month: "short", day: "numeric" });
 const PLACE = "place";
 
 /**

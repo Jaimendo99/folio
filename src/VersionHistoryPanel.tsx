@@ -1,3 +1,4 @@
+import { locale } from "./i18n";
 import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { clearVersions, HISTORY_CHANNEL, listVersions, readVersion, type PdfChange, type PdfVersion } from "./versionHistory";
@@ -60,7 +61,7 @@ export function VersionHistoryPanel({ id, allowed, pending, active, canOpen, onO
           <h3>No saved versions yet</h3><p>Save a copy after editing. Your original PDF and the edited version will appear here.</p></div>}
         {versions?.map(v => <section className="version-entry" key={v.id}>
           <h3>Version {v.number} {v.id === id && <small>{pending.length ? "Editing from" : "This PDF"}</small>}</h3>
-          <p className="version-date">{new Date(v.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</p>
+          <p className="version-date">{new Date(v.createdAt).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" })}</p>
           {v.number === 1 ? <p>Original PDF</p> : <>
             {v.parent !== v.number - 1 && <p>Edited from version {v.parent}</p>}
             <Changes changes={v.changes} />
