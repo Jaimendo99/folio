@@ -250,7 +250,14 @@ async function checkPenDrawing(app, page, folder, shots) {
       await page.getByRole("menuitem", { name: "Fit width" }).click();
       await layer.waitFor();
     }
-    const box = await layer.boundingBox();
+    // The layer is replaced while the page re-renders (after Fit width, or as the page settles), so wait
+    // until it can be measured instead of measuring once.
+    let box = null;
+    for (const start = Date.now(); !box && Date.now() - start < 10_000;) {
+      box = await layer.boundingBox().catch(() => null);
+      if (!box) await page.waitForTimeout(100);
+    }
+    assert.ok(box, `drawing layer is measurable for ${name}`);
     const x = box.x + box.width * 0.2;
     const y = box.y + box.height * (0.3 + index * 0.15);
     await page.mouse.move(x, y);
