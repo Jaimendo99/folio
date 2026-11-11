@@ -1,3 +1,4 @@
+import { translateUi, useLanguage } from "./i18n";
 import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -38,6 +39,7 @@ function remarkPageReferences() {
 }
 
 export const AiMarkdown = memo(function AiMarkdown({ text, onPage }: { text: string; onPage: (n: number) => void }) {
+  useLanguage();
   return (
     <ReactMarkdown
       skipHtml
@@ -48,7 +50,7 @@ export const AiMarkdown = memo(function AiMarkdown({ text, onPage }: { text: str
         a: ({ node, children }) => {
           const page = Number(node?.properties["data-folio-page"]);
           return Number.isSafeInteger(page) && page > 0
-            ? <button className="page-ref" onClick={() => onPage(page)} title={`Go to page ${page}`}>{children}</button>
+            ? <button className="page-ref" onClick={() => onPage(page)} title={translateUi("Go to page {v0}", { v0: page })}>{children}</button>
             : <>{children}</>;
         },
       }}

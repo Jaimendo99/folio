@@ -1,3 +1,5 @@
+import { keys } from "./platform";
+import { translateKnownUi, translateUi } from "./i18n";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./icons";
@@ -79,10 +81,10 @@ function CopyResponse({ text }: { text: string }) {
   }, [label]);
 
   return (
-    <button className="link small copy-response" title="Copy response as Markdown"
+    <button className="link small copy-response" title={translateUi("Copy response as Markdown")}
       onClick={async () => setLabel(await copyText(text) ? "Copied" : "Copy failed")}>
       <Icon name={label === "Copied" ? "check" : "copy"} size={13} />
-      <span aria-live="polite">{label}</span>
+      <span aria-live="polite">{translateKnownUi(label)}</span>
     </button>
   );
 }
@@ -104,12 +106,12 @@ function NewConversationDialog({ onCancel, onConfirm }: { onCancel: () => void; 
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }}>
-    <Modal title="Start a new conversation?" onClose={onCancel}>
+    <Modal title={translateUi("Start a new conversation?")} onClose={onCancel}>
       <div className="password-form">
-        <p>The current conversation for this document will be deleted. This cannot be undone.</p>
+        <p>{translateUi("The current conversation for this document will be deleted. This cannot be undone.")}</p>
         <div className="form-actions">
-          <button className="btn ghost" autoFocus onClick={onCancel}>Cancel</button>
-          <button className="btn primary" onClick={onConfirm}>Delete conversation</button>
+          <button className="btn ghost" autoFocus onClick={onCancel}>{translateUi("Cancel")}</button>
+          <button className="btn primary" onClick={onConfirm}>{translateUi("Delete conversation")}</button>
         </div>
       </div>
     </Modal>
@@ -172,7 +174,7 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
   }, [docId, messages, busy, generation, persist]);
   useEffect(() => {
     let current = true;
-    void ai?.status().then(value => { if (current) setStatus(value); }).catch(() => { if (current) setSetupError("Couldn't check AI connections."); });
+    void ai?.status().then(value => { if (current) setStatus(value); }).catch(() => { if (current) setSetupError(translateUi("Couldn't check AI connections.")); });
     return () => { current = false; };
   }, [ai, keyRevision]);
   useEffect(() => { if (context) inputRef.current?.focus(); }, [context]);
@@ -205,7 +207,7 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
         const last = next[next.length - 1];
         if (!last || last.role !== "assistant") return list;
         if (event.type === "delta") next[next.length - 1] = { ...last, content: last.content + (event.text ?? "") };
-        if (event.type === "error") next[next.length - 1] = { ...last, error: { message: event.message ?? "Something went wrong.", code: event.code, link: event.link } };
+        if (event.type === "error") next[next.length - 1] = { ...last, error: { message: event.message ?? translateUi("Something went wrong."), code: event.code, link: event.link } };
         return next;
       });
       if (event.type !== "delta") {
@@ -276,7 +278,7 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
       setBusy(null);
       setMessages((list) => {
         const next = list.slice();
-        next[next.length - 1] = { role: "assistant", content: "", error: { message: "Folio couldn't send that question." } };
+        next[next.length - 1] = { role: "assistant", content: "", error: { message: translateUi("Folio couldn't send that question.") } };
         return next;
       });
     }
@@ -292,22 +294,22 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
     setStatus(result.status);
   };
 
-  const placeholder = !ready ? "Connect an AI provider to ask questions"
-    : context ? "Ask about the selected passage…" : "Ask about this document…";
+  const placeholder = !ready ? translateUi("Connect an AI provider to ask questions")
+    : context ? translateUi("Ask about the selected passage…") : translateUi("Ask about this document…");
 
   return (
-    <aside className="ai-panel" aria-label="Ask AI">
+    <aside className="ai-panel" aria-label={translateUi("Ask AI")}>
       <header className="ai-head">
-        <div className="ai-title"><Icon name="sparkle" size={16} /> Ask AI</div>
-        {ai && <select className="ai-provider" aria-label="AI provider" value={provider} disabled={!!busy}
+        <div className="ai-title"><Icon name="sparkle" size={16} /> {translateUi("Ask AI")}</div>
+        {ai && <select className="ai-provider" aria-label={translateUi("AI provider")} value={provider} disabled={!!busy}
           onChange={event => saveAiPreference("folio:ai-provider", event.target.value)}>
           {Object.entries(PROVIDERS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>}
         <div className="ai-head-actions">
-          <button ref={newConversationRef} className="pill-btn" title="New conversation" aria-label="New conversation" disabled={!messages.length || !!busy} onClick={() => setConfirmNew(true)}>
+          <button ref={newConversationRef} className="pill-btn" title={translateUi("New conversation")} aria-label={translateUi("New conversation")} disabled={!messages.length || !!busy} onClick={() => setConfirmNew(true)}>
             <Icon name="plus" size={15} />
           </button>
-          <button className="pill-btn" title="Close" aria-label="Close Ask AI" onClick={onClose}>
+          <button className="pill-btn" title={translateUi("Close")} aria-label={translateUi("Close Ask AI")} onClick={onClose}>
             <Icon name="close" size={15} />
           </button>
         </div>
@@ -315,58 +317,58 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
 
       <div className="ai-body" ref={listRef}>
         {!ai ? (
-          <div className="ai-card"><p>Ask AI is available in the Folio desktop app.</p></div>
+          <div className="ai-card"><p>{translateUi("Ask AI is available in the Folio desktop app.")}</p></div>
         ) : !status ? (
-          <p className="ai-checking">Checking connections…</p>
+          <p className="ai-checking">{translateUi("Checking connections…")}</p>
         ) : provider === "chatgpt" && !chatgptConnected ? (
           <div className="ai-card">
-            <h3>Use your ChatGPT plan</h3>
-            <p>Sign in with ChatGPT to ask questions using your existing ChatGPT plan (Go, Plus, or Pro). No API key needed.</p>
+            <h3>{translateUi("Use your ChatGPT plan")}</h3>
+            <p>{translateUi("Sign in with ChatGPT to ask questions using your existing ChatGPT plan (Go, Plus, or Pro). No API key needed.")}</p>
             {/* Stays clickable while waiting: a closed browser tab is opened again. */}
             <button className="btn primary chatgpt-btn" onClick={signIn}>
-              {signingIn ? "Open the sign-in page again" : "Continue with ChatGPT"}
+              {signingIn ? translateUi("Open the sign-in page again") : translateUi("Continue with ChatGPT")}
             </button>
-            {signingIn && <p className="fine">Finish signing in in your browser, then come back here.</p>}
-            <p className="fine">When you ask, Folio sends your question and the document's text to OpenAI. Nothing is sent otherwise.</p>
+            {signingIn && <p className="fine">{translateUi("Finish signing in in your browser, then come back here.")}</p>}
+            <p className="fine">{translateUi("When you ask, Folio sends your question and the document's text to OpenAI. Nothing is sent otherwise.")}</p>
           </div>
         ) : provider === "claude" && !(status.claude.installed && status.claude.loggedIn) ? (
           <div className="ai-card">
-            <h3>Use your Claude subscription</h3>
+            <h3>{translateUi("Use your Claude subscription")}</h3>
             {!status.claude.installed ? (
-              <p>Folio uses Claude Code, Anthropic's official app, signed in with your own Claude Pro or Max account. Install Claude Code, sign in once, then check again.</p>
+              <p>{translateUi("Folio uses Claude Code, Anthropic's official app, signed in with your own Claude Pro or Max account. Install Claude Code, sign in once, then check again.")}</p>
             ) : (
-              <p>Claude Code is installed but not signed in. Open a terminal, run <code>claude</code>, and sign in with your Claude account.</p>
+              <p>{translateUi("Claude Code is installed but not signed in. Open a terminal, run")} <code>claude</code>{translateUi(", and sign in with your Claude account.")}</p>
             )}
             <div className="ai-card-actions">
-              {!status.claude.installed && <a className="btn ghost" href={CLAUDE_CODE_URL} target="_blank" rel="noreferrer">Get Claude Code</a>}
-              <button className="btn primary" onClick={async () => setStatus({ ...status, claude: await ai.recheckClaude() })}>Check again</button>
+              {!status.claude.installed && <a className="btn ghost" href={CLAUDE_CODE_URL} target="_blank" rel="noreferrer">{translateUi("Get Claude Code")}</a>}
+              <button className="btn primary" onClick={async () => setStatus({ ...status, claude: await ai.recheckClaude() })}>{translateUi("Check again")}</button>
             </div>
-            <p className="fine">Folio never sees your Claude password or tokens. When you ask, it sends your question and the document's text to Anthropic through Claude Code.</p>
+            <p className="fine">{translateUi("Folio never sees your Claude password or tokens. When you ask, it sends your question and the document's text to Anthropic through Claude Code.")}</p>
           </div>
         ) : provider === "openrouter" && !connected.openrouter ? (
           <div className="ai-card">
-            <h3>Connect OpenRouter</h3>
-            <p>{status.openrouter?.configured ? "Choose a model for your questions." : "Use your own API key and choose a model in Settings."}</p>
-            <button className="btn primary" onClick={onSettings}>Open Ask AI settings</button>
+            <h3>{translateUi("Connect OpenRouter")}</h3>
+            <p>{status.openrouter?.configured ? translateUi("Choose a model for your questions.") : translateUi("Use your own API key and choose a model in Settings.")}</p>
+            <button className="btn primary" onClick={onSettings}>{translateUi("Open Ask AI settings")}</button>
           </div>
         ) : (
           <>
             {provider === "chatgpt" && !status.chatgpt.welcomeSeen && (
               <div className="ai-card ai-welcome">
-                <p><strong>You're connected{status.chatgpt.email ? ` as ${status.chatgpt.email}` : ""}.</strong> Questions you ask in Folio use your ChatGPT plan. You can manage usage in ChatGPT settings.</p>
+                <p><strong>{translateUi("You're connected")}{status.chatgpt.email ? translateUi(" as {v0}", { v0: status.chatgpt.email }) : ""}.</strong> {translateUi("Questions you ask in Folio use your ChatGPT plan. You can manage usage in ChatGPT settings.")}</p>
                 <div className="ai-card-actions">
-                  <a className="btn ghost" href={USAGE_URL} target="_blank" rel="noreferrer">Manage usage</a>
-                  <button className="btn primary" onClick={async () => { await ai.chatgptWelcomeSeen(); setStatus(await ai.status()); }}>Got it</button>
+                  <a className="btn ghost" href={USAGE_URL} target="_blank" rel="noreferrer">{translateUi("Manage usage")}</a>
+                  <button className="btn primary" onClick={async () => { await ai.chatgptWelcomeSeen(); setStatus(await ai.status()); }}>{translateUi("Got it")}</button>
                 </div>
               </div>
             )}
             {messages.length === 0 && (
               <div className="ai-empty">
-                <p>Ask anything about <strong>{docName.replace(/\.pdf$/i, "")}</strong>, or select text in the document and choose <em>Ask AI</em>.</p>
+                <p>{translateUi("Ask anything about")} <strong>{docName.replace(/\.pdf$/i, "")}</strong>{translateUi(", or select text in the document and choose")} <em>{translateUi("Ask AI")}</em>.</p>
                 <div className="suggestions">
                   {(context ? ["Explain this in simple terms", "Why does this matter?", "Summarize this passage"]
                     : ["Summarize this document", "What are the key takeaways?", "What questions does this leave open?"]).map((q) => (
-                    <button key={q} className="suggestion" onClick={() => void send(q)}>{q}</button>
+                    <button key={q} className="suggestion" onClick={() => void send(translateKnownUi(q))}>{translateKnownUi(q)}</button>
                   ))}
                 </div>
               </div>
@@ -382,10 +384,10 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
                   <div className="msg-error">
                     <p>{m.error.message}</p>
                     {m.error.code === "usage_limit" && provider === "chatgpt" && (
-                      <a className="btn primary" href={m.error.link || USAGE_URL} target="_blank" rel="noreferrer">Manage usage</a>
+                      <a className="btn primary" href={m.error.link || USAGE_URL} target="_blank" rel="noreferrer">{translateUi("Manage usage")}</a>
                     )}
                     {m.error.code === "signed_out" && provider === "chatgpt" && (
-                      <button className="btn primary" onClick={signIn}>Continue with ChatGPT</button>
+                      <button className="btn primary" onClick={signIn}>{translateUi("Continue with ChatGPT")}</button>
                     )}
                   </div>
                 ) : m.content ? (
@@ -396,7 +398,7 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
                     {(!busy || i < messages.length - 1) && <CopyResponse text={m.content} />}
                   </>
                 ) : (
-                  <div className="typing" aria-label="Thinking"><span /><span /><span /></div>
+                  <div className="typing" aria-label={translateUi("Thinking")}><span /><span /><span /></div>
                 )}
               </div>
             ))}
@@ -409,7 +411,7 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
         {context && (
           <div className="context-chip">
             <span>p. {context.page}: “{context.text.length > 90 ? context.text.slice(0, 90) + "…" : context.text}”</span>
-            <button onClick={onClearContext} aria-label="Ask about the whole document instead" title="Ask about the whole document instead">
+            <button onClick={onClearContext} aria-label={translateUi("Ask about the whole document instead")} title={translateUi("Ask about the whole document instead")}>
               <Icon name="close" size={12} />
             </button>
           </div>
@@ -436,11 +438,11 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
             }}
           />
           {busy ? (
-            <button type="button" className="send-btn" onClick={stop} title="Stop" aria-label="Stop">
+            <button type="button" className="send-btn" onClick={stop} title={translateUi("Stop")} aria-label={translateUi("Stop")}>
               <Icon name="stop" size={15} />
             </button>
           ) : (
-            <button type="submit" className="send-btn" disabled={!ready || !input.trim()} title="Send (Enter)" aria-label="Send">
+            <button type="submit" className="send-btn" disabled={!ready || !input.trim()} title={keys(translateUi("Send (Enter)"))} aria-label={translateUi("Send")}>
               <Icon name="send" size={16} />
             </button>
           )}
@@ -448,13 +450,13 @@ export function AiPanel({ pdf, docId, persist, docName, context, onClearContext,
         {ready && (
           <div className="ai-meta">
             {provider === "openrouter" ? <button className="link small router-model-link" title={model} onClick={onSettings}>{model}</button> :
-            <select value={model} onChange={(e) => saveAiPreference(modelKey, e.target.value)} aria-label="Model">
-              {(provider === "chatgpt" ? models : CLAUDE_MODELS).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            <select value={model} onChange={(e) => saveAiPreference(modelKey, e.target.value)} aria-label={translateUi("Model")}>
+              {(provider === "chatgpt" ? models : CLAUDE_MODELS).map((m) => <option key={m.id} value={m.id}>{translateKnownUi(m.name)}</option>)}
             </select>}
             {provider === "chatgpt" ? (
-              <span>Using ChatGPT plan · <a href={USAGE_URL} target="_blank" rel="noreferrer">Manage usage</a></span>
-            ) : provider === "openrouter" ? <span>Billed by OpenRouter</span> : (
-              <span>{status?.claude.subscription ? "Using your Claude subscription via Claude Code" : "Using Claude Code"}</span>
+              <span>{translateUi("Using ChatGPT plan ·")} <a href={USAGE_URL} target="_blank" rel="noreferrer">{translateUi("Manage usage")}</a></span>
+            ) : provider === "openrouter" ? <span>{translateUi("Billed by OpenRouter")}</span> : (
+              <span>{status?.claude.subscription ? translateUi("Using your Claude subscription via Claude Code") : translateUi("Using Claude Code")}</span>
             )}
           </div>
         )}

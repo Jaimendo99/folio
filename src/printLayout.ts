@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n.ts";
 export type PrintMode = "size" | "poster" | "multiple" | "booklet";
 export type PrintSettings = {
   mode: PrintMode; sizing: "fit" | "actual" | "shrink" | "custom";
@@ -21,25 +22,25 @@ export function printPixels(size: PageSize, dpi: number) {
   return { width: Math.ceil(size.width * dpi / 72), height: Math.ceil(size.height * dpi / 72) };
 }
 export function checkPrintBudget(sheets: PageSize[], dpi: number) {
-  if (![150, 300, 600].includes(dpi)) throw new Error("Choose 150, 300 or 600 dpi.");
+  if (![150, 300, 600].includes(dpi)) throw new Error(translateUi("Choose 150, 300 or 600 dpi."));
   let bytes = 0;
   for (const sheet of sheets) {
     const { width, height } = printPixels(sheet, dpi);
-    if (!Number.isFinite(width * height) || width * height > MAX_PRINT_PIXELS) throw new Error("A sheet exceeds the 48-megapixel limit. Choose a lower DPI or smaller paper.");
+    if (!Number.isFinite(width * height) || width * height > MAX_PRINT_PIXELS) throw new Error(translateUi("A sheet exceeds the 48-megapixel limit. Choose a lower DPI or smaller paper."));
     bytes += width * height * 4;
   }
-  if (bytes > MAX_PRINT_DECODED_BYTES) throw new Error(`This job needs ${Math.ceil(bytes / 1024 / 1024)} MiB of decoded images, above the 576 MiB limit. Select fewer pages, reduce poster scale/overlap, or choose a lower DPI.`);
+  if (bytes > MAX_PRINT_DECODED_BYTES) throw new Error(translateUi("This job needs {v0} MiB of decoded images, above the 576 MiB limit. Select fewer pages, reduce poster scale/overlap, or choose a lower DPI.", { v0: Math.ceil(bytes / 1024 / 1024) }));
   return bytes;
 }
 
 export function parsePages(text: string, count: number): number[] {
   const selected = new Set<number>();
-  if (!text.trim()) throw new Error("Enter pages, for example 1-3, 5.");
+  if (!text.trim()) throw new Error(translateUi("Enter pages, for example 1-3, 5."));
   for (const part of text.split(",")) {
     const match = part.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
-    if (!match) throw new Error("Use page numbers or ranges, for example 1-3, 5.");
+    if (!match) throw new Error(translateUi("Use page numbers or ranges, for example 1-3, 5."));
     const start = Number(match[1]), end = Number(match[2] ?? start);
-    if (start < 1 || end > count || start > end) throw new Error(`Pages must be between 1 and ${count}, in ascending ranges.`);
+    if (start < 1 || end > count || start > end) throw new Error(translateUi("Pages must be between 1 and {v0}, in ascending ranges.", { v0: count }));
     for (let n = start; n <= end; n++) selected.add(n);
   }
   return [...selected].sort((a, b) => a - b);
@@ -47,8 +48,8 @@ export function parsePages(text: string, count: number): number[] {
 
 // Coordinates are PDF points. The same plan drives both preview and printed sheets.
 export function planSheets(pages: number[], sizes: PageSize[], settings: PrintSettings): PrintSheet[] {
-  if (!pages.length) throw new Error("Select at least one page.");
-  if (!Number.isFinite(settings.scale) || settings.scale < 10 || settings.scale > 400) throw new Error("Scale must be between 10% and 400%.");
+  if (!pages.length) throw new Error(translateUi("Select at least one page."));
+  if (!Number.isFinite(settings.scale) || settings.scale < 10 || settings.scale > 400) throw new Error(translateUi("Scale must be between 10% and 400%."));
   const base = PAPER[settings.paper];
   const margin = 18;
   const sheets: PrintSheet[] = [];
@@ -59,7 +60,7 @@ export function planSheets(pages: number[], sizes: PageSize[], settings: PrintSe
     return landscape ? { width: base.height, height: base.width } : base;
   };
   const sheet = (page: number) => {
-    if (sheets.length >= 100) throw new Error("Print up to 100 sheets at a time. Select a smaller page range.");
+    if (sheets.length >= 100) throw new Error(translateUi("Print up to 100 sheets at a time. Select a smaller page range."));
     const value: PrintSheet = { ...sheetSize(page), placements: [] };
     sheets.push(value); return value;
   };
@@ -91,7 +92,7 @@ export function planSheets(pages: number[], sizes: PageSize[], settings: PrintSe
     });
   } else if (settings.mode === "poster") {
     const overlap = settings.overlapPoints;
-    if (!Number.isFinite(overlap) || overlap < 0 || overlap >= Math.min(base.width, base.height) - 2 * margin) throw new Error("Overlap must be nonnegative and smaller than the printable width and height.");
+    if (!Number.isFinite(overlap) || overlap < 0 || overlap >= Math.min(base.width, base.height) - 2 * margin) throw new Error(translateUi("Overlap must be nonnegative and smaller than the printable width and height."));
     for (const page of pages) {
       const paper = sheetSize(page), availableW = paper.width - 2 * margin, availableH = paper.height - 2 * margin;
       const stepX = availableW - overlap, stepY = availableH - overlap;
@@ -99,7 +100,7 @@ export function planSheets(pages: number[], sizes: PageSize[], settings: PrintSe
       const w = size.width * scale, h = size.height * scale;
       const cols = Math.max(1, 1 + Math.ceil((w - availableW) / stepX - 1e-10));
       const rows = Math.max(1, 1 + Math.ceil((h - availableH) / stepY - 1e-10));
-      if (sheets.length + cols * rows > 100) throw new Error("This layout exceeds 100 sheets. Select fewer pages or reduce the scale.");
+      if (sheets.length + cols * rows > 100) throw new Error(translateUi("This layout exceeds 100 sheets. Select fewer pages or reduce the scale."));
       for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) sheet(page).placements.push({ page,
         x: margin - col * stepX, y: margin - row * stepY, width: w, height: h, scale,
         clip: { x: margin, y: margin, width: availableW, height: availableH } });

@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { useLanguage } from "./i18n";
 import { createRoot } from "react-dom/client";
 import { DocumentTabs, type ReaderFrame } from "./documentTabs";
@@ -12,7 +13,7 @@ if (reader) {
   const desktop = window.parent.folioDesktop;
   if (desktop) {
     window.folioDesktop = { ...desktop, installUpdate: () => {
-      if (reader.tabs.all.some(tab => tab.dirty) && !window.parent.confirm("Restart Folio and discard unsaved changes?")) return;
+      if (reader.tabs.all.some(tab => tab.dirty) && !window.parent.confirm(translateUi("Restart Folio and discard unsaved changes?"))) return;
       desktop.installUpdate();
     } };
     document.documentElement.classList.add("desktop", `platform-${desktop.platform}`);

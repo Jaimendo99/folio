@@ -1,3 +1,4 @@
+import { translateKnownUi, translateUi } from "./i18n";
 import { locale, t, useLanguage, setLanguage, type Language } from "./i18n";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Modal } from "./Dialogs";
@@ -97,7 +98,7 @@ function StoredData() {
         const next = await countStoredData();
         if (active) setCounts(next);
       } catch {
-        if (active) setError("Couldn't count stored documents. Close and reopen this section to try again.");
+        if (active) setError(translateUi("Couldn't count stored documents. Close and reopen this section to try again."));
       }
     };
     void refresh();
@@ -114,7 +115,7 @@ function StoredData() {
       setCounts(current => current && { ...current, [kind]: 0 });
       setConfirm(null);
       summary.current?.focus();
-    } catch { setError("Couldn't clear the saved data. Try again."); }
+    } catch { setError(translateUi("Couldn't clear the saved data. Try again.")); }
     finally { setBusy(false); }
   };
 
@@ -122,26 +123,26 @@ function StoredData() {
     setOpen(event.currentTarget.open);
     if (!event.currentTarget.open) { setConfirm(null); setError(""); setCounts(null); }
   }}>
-    <summary ref={summary}><Icon name="chevronRight" size={15} />Stored data</summary>
+    <summary ref={summary}><Icon name="chevronRight" size={15} />{translateUi("Stored data")}</summary>
     {open && <div className="stored-body">
-      <p className="stored-hint">Includes documents no longer in Recent.</p>
+      <p className="stored-hint">{translateUi("Includes documents no longer in Recent.")}</p>
       {(["notes", "ai"] as const).map(kind => {
         const { label, action } = storedCategories[kind];
         const count = counts?.[kind];
-        return <Row key={kind} label={label} hint={count === undefined ? "…" : `${count} document${count === 1 ? "" : "s"}`}>
+        return <Row key={kind} label={translateKnownUi(label)} hint={count === undefined ? "…" : translateUi("{v0} document{v1}", { v0: count, v1: count === 1 ? "" : "s" })}>
           <button className="btn ghost" disabled={!count || busy} onClick={event => {
             trigger.current = event.currentTarget;
             setError("");
             setConfirm(kind);
-          }}>{action}…</button>
+          }}>{translateKnownUi(action)}…</button>
         </Row>;
       })}
       {confirm && <div key={confirm} className="stored-confirm" role="alertdialog" aria-labelledby="stored-question" aria-describedby="stored-detail"
         onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); if (!busy) cancel(); } }}>
-        <strong id="stored-question">{storedCategories[confirm].question}</strong>
-        <p id="stored-detail">{storedCategories[confirm].detail}</p>
-        <button className="btn ghost" autoFocus disabled={busy} onClick={cancel}>Cancel</button>
-        <button className="btn primary" disabled={busy} onClick={() => void clear(confirm)}>{storedCategories[confirm].action}</button>
+        <strong id="stored-question">{translateKnownUi(storedCategories[confirm].question)}</strong>
+        <p id="stored-detail">{translateKnownUi(storedCategories[confirm].detail)}</p>
+        <button className="btn ghost" autoFocus disabled={busy} onClick={cancel}>{translateUi("Cancel")}</button>
+        <button className="btn primary" disabled={busy} onClick={() => void clear(confirm)}>{translateKnownUi(storedCategories[confirm].action)}</button>
       </div>}
       {error && <p className="form-error" role="alert">{error}</p>}
     </div>}
@@ -181,7 +182,7 @@ export function SettingsDialog({ initialSection = "General", theme, onTheme, nig
     if (section !== "Ask AI") return;
     let current = true;
     void ai?.status().then(value => { if (current) setAiStatus(value); })
-      .catch(() => { if (current) setError("Couldn't check the provider connections."); });
+      .catch(() => { if (current) setError(translateUi("Couldn't check the provider connections.")); });
     return () => { current = false; };
   }, [ai, section]);
 
@@ -193,10 +194,10 @@ export function SettingsDialog({ initialSection = "General", theme, onTheme, nig
   return (
     <Modal title={t("settings")} onClose={onClose}>
       <div className="settings">
-        <nav className="settings-nav" aria-label="Settings sections">
+        <nav className="settings-nav" aria-label={translateUi("Settings sections")}>
           {(["General", "Ask AI", "Storage"] as const).filter(name => name !== "Ask AI" || ai).map(name =>
             <button key={name} type="button" aria-current={section === name ? "page" : undefined}
-              onClick={() => { setSection(name); setError(null); }}>{name === "General" ? t("general") : name === "Storage" ? t("storage") : name}</button>)}
+              onClick={() => { setSection(name); setError(null); }}>{name === "General" ? t("general") : name === "Storage" ? t("storage") : translateUi("Ask AI")}</button>)}
         </nav>
         {section === "General" && <><Section title={t("language")} >
           <Row label={t("language")}><Choice label={t("language")} value={language} onChange={(value: Language) => {
@@ -225,20 +226,20 @@ export function SettingsDialog({ initialSection = "General", theme, onTheme, nig
 
         {ai && section === "Ask AI" && (
           <section className="settings-section">
-            <Row label="Provider">
-              <select aria-label="Ask AI provider" className="ai-provider" value={provider} onChange={event => {
+            <Row label={translateUi("Provider")}>
+              <select aria-label={translateUi("Ask AI provider")} className="ai-provider" value={provider} onChange={event => {
                 const next = event.target.value as AiProvider;
                 setProvider(next); setError(null); saveAiPreference("folio:ai-provider", next);
               }}>{Object.entries(PROVIDERS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
             </Row>
             {provider === "chatgpt" && <Row
               label="ChatGPT"
-              hint={!aiStatus ? "Checking…" : aiStatus.chatgpt.connected
-                ? <>Signed in{aiStatus.chatgpt.email ? ` as ${aiStatus.chatgpt.email}` : ""}. Uses your ChatGPT plan · <a href={USAGE_URL} target="_blank" rel="noreferrer">Manage usage</a></>
-                : "Use your ChatGPT plan (Go, Plus, or Pro). No API key needed."}
+              hint={!aiStatus ? translateUi("Checking…") : aiStatus.chatgpt.connected
+                ? <>{translateUi("Signed in")}{aiStatus.chatgpt.email ? translateUi(" as {v0}", { v0: aiStatus.chatgpt.email }) : ""}{translateUi(". Uses your ChatGPT plan ·")} <a href={USAGE_URL} target="_blank" rel="noreferrer">{translateUi("Manage usage")}</a></>
+                : translateUi("Use your ChatGPT plan (Go, Plus, or Pro). No API key needed.")}
             >
               {aiStatus?.chatgpt.connected ? (
-                <button className="btn ghost" onClick={async () => setAiStatus({ ...aiStatus, chatgpt: await ai!.signOutChatGPT() })}>Sign out</button>
+                <button className="btn ghost" onClick={async () => setAiStatus({ ...aiStatus, chatgpt: await ai!.signOutChatGPT() })}>{translateUi("Sign out")}</button>
               ) : (
                 <button className="btn primary" disabled={!aiStatus} onClick={async () => {
                   setSigningIn(true);
@@ -247,66 +248,66 @@ export function SettingsDialog({ initialSection = "General", theme, onTheme, nig
                   setSigningIn(false);
                   setError(result.error);
                   setAiStatus(result.status);
-                }}>{signingIn ? "Open the sign-in page again" : "Continue with ChatGPT"}</button>
+                }}>{signingIn ? translateUi("Open the sign-in page again") : translateUi("Continue with ChatGPT")}</button>
               )}
             </Row>}
             {provider === "claude" && <Row
               label="Claude"
-              hint={!aiStatus ? "Checking…" : !aiStatus.claude.installed
-                ? <>Uses your Claude subscription through <a href={CLAUDE_CODE_URL} target="_blank" rel="noreferrer">Claude Code</a>. Install it and sign in once.</>
+              hint={!aiStatus ? translateUi("Checking…") : !aiStatus.claude.installed
+                ? <>{translateUi("Uses your Claude subscription through")} <a href={CLAUDE_CODE_URL} target="_blank" rel="noreferrer">{translateUi("Claude Code")}</a>{translateUi(". Install it and sign in once.")}</>
                 : aiStatus.claude.loggedIn
-                  ? `Claude Code ${aiStatus.claude.version ?? ""} is signed in${aiStatus.claude.subscription ? " with your Claude subscription" : ""}.`
-                  : "Claude Code is installed but not signed in. Run claude in a terminal and sign in."}
+                  ? translateUi("Claude Code {v0} is signed in{v1}.", { v0: aiStatus.claude.version ?? "", v1: aiStatus.claude.subscription ? translateUi(" with your Claude subscription") : "" })
+                  : translateUi("Claude Code is installed but not signed in. Run claude in a terminal and sign in.")}
             >
-              <button className="btn ghost" disabled={!aiStatus} onClick={async () => setAiStatus({ ...aiStatus!, claude: await ai!.recheckClaude() })}>Check again</button>
+              <button className="btn ghost" disabled={!aiStatus} onClick={async () => setAiStatus({ ...aiStatus!, claude: await ai!.recheckClaude() })}>{translateUi("Check again")}</button>
             </Row>}
             {provider === "openrouter" && (aiStatus ? <OpenRouterSettings ai={ai} configured={!!aiStatus.openrouter?.configured}
-              onConfigured={configured => setAiStatus({ ...aiStatus, openrouter: { configured } })} /> : <p className="settings-hint">Checking connection…</p>)}
+              onConfigured={configured => setAiStatus({ ...aiStatus, openrouter: { configured } })} /> : <p className="settings-hint">{translateUi("Checking connection…")}</p>)}
           </section>
         )}
 
-        {section === "Storage" && <><StoredData /><Section title="Signature">
-          <Row label="Remembered signature" hint={savedSignature
-            ? "Saved on this computer (unencrypted) for quick signing."
-            : "None. You can choose to remember one when you sign a document."}>
+        {section === "Storage" && <><StoredData /><Section title={translateUi("Signature")}>
+          <Row label={translateUi("Remembered signature")} hint={savedSignature
+            ? translateUi("Saved on this computer (unencrypted) for quick signing.")
+            : translateUi("None. You can choose to remember one when you sign a document.")}>
             <button className="btn ghost" disabled={!savedSignature} onClick={() => {
               try { localStorage.removeItem("folio:signature"); setSavedSignature(false); }
-              catch { setError("Couldn't forget the signature. Please try again."); }
-            }}>Forget</button>
+              catch { setError(translateUi("Couldn't forget the signature. Please try again.")); }
+            }}>{translateUi("Forget")}</button>
           </Row>
         </Section></>}
 
         {desktop && section === "General" && (
-          <Section title="Updates">
+          <Section title={translateUi("Updates")}>
             {updatable && (
-              <Row label="Automatic updates" hint={autoUpdate === false
-                ? "Off: no background checks or downloads. You can still check manually."
+              <Row label={translateUi("Automatic updates")} hint={autoUpdate === false
+                ? translateUi("Off: no background checks or downloads. You can still check manually.")
                 : notifyOnly
-                  ? "Folio checks for new versions and lets you know; download them from the releases page."
-                  : "Downloads updates in the background and installs them when Folio closes."}>
-                <Switch label="Automatic updates" checked={autoUpdate === true} disabled={autoUpdate === null || savingUpdate} onChange={async (on) => {
+                  ? translateUi("Folio checks for new versions and lets you know; download them from the releases page.")
+                  : translateUi("Downloads updates in the background and installs them when Folio closes.")}>
+                <Switch label={translateUi("Automatic updates")} checked={autoUpdate === true} disabled={autoUpdate === null || savingUpdate} onChange={async (on) => {
                   setSavingUpdate(true);
                   setError(null);
                   try { setAutoUpdate(await desktop.setAutoUpdateEnabled(on)); }
-                  catch { setError("Couldn't save the update setting. Try again."); }
+                  catch { setError(translateUi("Couldn't save the update setting. Try again.")); }
                   finally { setSavingUpdate(false); }
                 }} />
               </Row>
             )}
-            <Row label={`Folio ${info?.version ?? ""}`.trim()} hint={updateSummary(status) || (status.checkedAt ? `Last checked ${new Date(status.checkedAt).toLocaleString(locale())}` : undefined)}>
+            <Row label={`Folio ${info?.version ?? ""}`.trim()} hint={updateSummary(status) || (status.checkedAt ? translateUi("Last checked {v0}", { v0: new Date(status.checkedAt).toLocaleString(locale()) }) : undefined)}>
               {updatable ? (
                 <button className="btn ghost" disabled={status.state === "checking" || status.state === "downloading"}
                   onClick={() => status.state === "ready" ? desktop.installUpdate() : status.state === "available" ? void desktop.openDownload() : desktop.checkForUpdates()}>
-                  {status.state === "ready" ? "Restart and update" : status.state === "available" ? `Download ${status.version}` : "Check for updates"}
+                  {status.state === "ready" ? translateUi("Restart and update") : status.state === "available" ? translateUi("Download {v0}", { v0: status.version }) : translateUi("Check for updates")}
                 </button>
               ) : null}
             </Row>
           </Section>
         )}
 
-        {section === "General" && <Section title="About">
-          <Row label="What's new" hint="Changes in each version of Folio.">
-            <button className="btn ghost" onClick={onOpenChangelog}>View changelog</button>
+        {section === "General" && <Section title={translateUi("About")}>
+          <Row label={translateUi("What's new")} hint={translateUi("Changes in each version of Folio.")}>
+            <button className="btn ghost" onClick={onOpenChangelog}>{translateUi("View changelog")}</button>
           </Row>
         </Section>}
 

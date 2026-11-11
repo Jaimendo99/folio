@@ -144,7 +144,7 @@ export function Welcome({ active, onPick, onOpenUrl, onOpenRecent, onSample, loa
                   <div className="recent-meta">
                     <strong title={f.name}>{f.name.replace(/\.pdf$/i, "")}</strong>
                     <span>
-                      {timeAgo(f.openedAt)} · {f.pages} {f.pages === 1 ? t("page") : t("pages")} · {formatBytes(f.size)}
+                      {timeAgo(f.openedAt)} · {f.pages.toLocaleString(locale())} {f.pages === 1 ? t("page") : t("pages")} · {formatBytes(f.size)}
                     </span>
                   </div>
                   <button

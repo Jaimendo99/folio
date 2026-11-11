@@ -1,3 +1,4 @@
+import { translateKnownUi, translateUi } from "./i18n";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties, type Ref, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { PageViewport } from "pdfjs-dist";
@@ -98,22 +99,22 @@ export function ContentEditor({ ref, nextSelection, pdf, viewer, bus, snapshot, 
     const fail = (reason: Error) => { setError(reason.message); waiter.current?.reject(reason); waiter.current = null; };
     w.onmessage = ({ data }: MessageEvent<EditorReply>) => {
       if ("error" in data) {
-        if (data.page === undefined) fail(new Error(data.error));
-        else setError(data.error);
+        if (data.page === undefined) fail(new Error(translateKnownUi(data.error)));
+        else setError(translateKnownUi(data.error));
       } else if ("bytes" in data) { waiter.current?.resolve(data.bytes); waiter.current = null; }
       else setTargets(old => new Map(old).set(data.page, data.targets));
     };
-    w.onerror = () => fail(new Error("The PDF editor stopped. Exit and re-enter Edit mode to try again."));
+    w.onerror = () => fail(new Error(translateUi("The PDF editor stopped. Exit and re-enter Edit mode to try again.")));
     void pdf.getData().then(source => {
       if (worker.current !== w) return;
       w.postMessage({ source } satisfies EditorRequest); initialized = true; schedule();
-    }).catch(() => { if (worker.current === w) fail(new Error("Couldn't read this PDF for editing.")); });
+    }).catch(() => { if (worker.current === w) fail(new Error(translateUi("Couldn't read this PDF for editing."))); });
     schedule();
     return () => {
       for (const event of events) bus.off(event, schedule);
       cancelAnimationFrame(frame);
       w.terminate(); worker.current = null;
-      waiter.current?.reject(new Error("The document changed.")); waiter.current = null;
+      waiter.current?.reject(new Error(translateUi("The document changed."))); waiter.current = null;
       for (const host of hosts.values()) host.remove();
     };
   }, [pdf, viewer, bus]);
@@ -140,7 +141,7 @@ export function ContentEditor({ ref, nextSelection, pdf, viewer, bus, snapshot, 
           : { kind: "image", page: selected.page, fileName: change.file.name };
         return worker.current === w && await apply(result, detail);
       } catch (e) {
-        if (worker.current === w) { setError(e instanceof Error ? e.message : "Couldn't apply the edit."); input.current?.focus({ preventScroll: true }); }
+        if (worker.current === w) { setError(e instanceof Error ? e.message : translateUi("Couldn't apply the edit.")); input.current?.focus({ preventScroll: true }); }
         return false;
       } finally { pending.current = null; if (worker.current === w) setBusy(false); }
     })();
@@ -199,7 +200,7 @@ export function ContentEditor({ ref, nextSelection, pdf, viewer, bus, snapshot, 
   return <>
     {surfaces.map(s => createPortal(<>
       {(targets.get(s.page) ?? []).map(t => <button key={t.index} type="button" className="folio-content-target"
-        data-kind={t.kind} aria-label={t.label} aria-pressed={selected?.page === s.page && selected.target === t}
+        data-kind={t.kind} aria-label={t.kind === "image" ? translateUi("Image {v0}", { v0: (t.ordinal ?? 0) + 1 }) : t.label} aria-pressed={selected?.page === s.page && selected.target === t}
         disabled={busy} style={rectangle(t,s.viewport)} onClick={() => pick(s,t)}
         onPointerDown={e => {
           if (!modified || e.button !== 0) return;
@@ -209,7 +210,7 @@ export function ContentEditor({ ref, nextSelection, pdf, viewer, bus, snapshot, 
         }} />)}
       {selected?.page === s.page && (selected.target.kind === "text" ? <>
         <div className="folio-old-text" style={{ ...rectangle(selected.target,s.viewport), background: selected.paper }} />
-        <input ref={input} className="folio-inline-text" aria-label="Edit text on page" maxLength={32767}
+        <input ref={input} className="folio-inline-text" aria-label={translateUi("Edit text on page")} maxLength={32767}
           style={{ ...inputStyle(selected.target,s.viewport,selected.paper),
             ...(face?.target === selected.target ? { fontFamily: face.family } : {}) }} value={value} readOnly={busy}
           onChange={e => { setValue(e.target.value); setError(""); }}
@@ -220,14 +221,14 @@ export function ContentEditor({ ref, nextSelection, pdf, viewer, bus, snapshot, 
             if (e.key === "Escape" && !pending.current) { e.stopPropagation(); selectedRef.current = null; setSelected(null); setError(""); }
           }} />
       </> : <div className="folio-image-actions" style={{ left: rectangle(selected.target,s.viewport).left, top: rectangle(selected.target,s.viewport).top }}>
-        <button className="btn" disabled={busy} onClick={() => file.current?.click()}>Replace image…</button>
-        <input hidden ref={file} type="file" aria-label="Replacement image" accept="image/png,image/jpeg" onChange={e => {
+        <button className="btn" disabled={busy} onClick={() => file.current?.click()}>{translateUi("Replace image…")}</button>
+        <input hidden ref={file} type="file" aria-label={translateUi("Replacement image")} accept="image/png,image/jpeg" onChange={e => {
           const picked = e.target.files?.[0]; e.target.value = "";
           if (picked) void commit({ kind: "image", index: selected.target.index, file: picked });
         }} />
       </div>)}
     </>,s.host,s.page))}
-    <div className="folio-edit-status" role={error ? "alert" : "status"}>{error || (busy ? "Applying edit…" :
-      surfaces.length > 0 && surfaces.every(s => targets.get(s.page)?.length === 0) ? "No editable text or images on this page." : "")}</div>
+    <div className="folio-edit-status" role={error ? "alert" : "status"}>{error || (busy ? translateUi("Applying edit…") :
+      surfaces.length > 0 && surfaces.every(s => targets.get(s.page)?.length === 0) ? translateUi("No editable text or images on this page.") : "")}</div>
   </>;
 }

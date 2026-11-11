@@ -1,3 +1,4 @@
+import { locale, translateKnownUi, translateUi } from "./i18n";
 import { t } from "./i18n";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -306,7 +307,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     const history = new LinkHistory(viewer, (state, followed) => {
       setNavigation(state);
       if (followed && tabs.active === tabKey && tabs.takeLinkHint()) {
-        setBackHint(followed.from === followed.to ? "Back to previous spot" : `Back to page ${followed.from}`);
+        setBackHint(followed.from === followed.to ? translateUi("Back to previous spot") : translateUi("Back to page {v0}", { v0: followed.from }));
       } else setBackHint(null);
     });
     linkService.setHistory(history);
@@ -505,10 +506,10 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         if (signal.aborted) return;
         const e = err as { name?: string; code?: number; message?: string };
         if (e?.name === "PasswordException") {
-          setPending({ name, data, error: e.code === 2 ? "Incorrect password. Try again." : undefined });
+          setPending({ name, data, error: e.code === 2 ? translateUi("Incorrect password. Try again.") : undefined });
         } else {
           tabs.failed(tabKey);
-          setError(`Couldn't open “${name}”. ${e?.message ?? "The file may be damaged."}`);
+          setError(translateUi("Couldn't open “{v0}”. {v1}", { v0: name, v1: e?.message ?? translateUi("The file may be damaged.") }));
         }
       } finally {
         if (unattached) void unattached.loadingTask.destroy().catch(() => {});
@@ -529,7 +530,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
       if (!signal.aborted) {
         setLoading(false);
         tabs.failed(tabKey);
-        setError(`Couldn't open “${name}”. ${(error as Error).message}`);
+        setError(translateUi("Couldn't open “{v0}”. {v1}", { v0: name, v1: (error as Error).message }));
         return false;
       }
     }
@@ -540,7 +541,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     tabs.open(Array.from(files, (file): OpenSource => {
       if (window.folioDesktop && /\.docx?$/i.test(file.name)) return { kind: "word", name: file.name, file };
       if (file.type && file.type !== "application/pdf" && !/\.pdf$/i.test(file.name))
-        return { kind: "error", name: file.name, message: `“${file.name}” isn't a PDF.` };
+        return { kind: "error", name: file.name, message: translateUi("“{v0}” isn't a PDF.", { v0: file.name }) };
       return { kind: "blob", name: file.name, blob: file };
     }));
   }, [tabs]);
@@ -560,7 +561,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
       const host = new URL(url).hostname;
       setLoading(true);
       setError(null);
-      setToast(`Opening ${host}…`);
+      setToast(translateUi("Opening {v0}…", { v0: host }));
       try {
         let file: { name: string; data: Uint8Array } | null;
         if (window.folioDesktop) {
@@ -578,7 +579,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           const slow = new AbortController();
           const answering = window.setTimeout(() => slow.abort(), 60_000);
           const res = await fetch(url, { signal: AbortSignal.any([signal, slow.signal]) }).catch(() => {
-            throw new Error(`Couldn't download from ${host}. The site may not allow it.`);
+            throw new Error(translateUi("Couldn't download from {v0}. The site may not allow it.", { v0: host }));
           }).finally(() => window.clearTimeout(answering));
           const data = await readPdfResponse(res, signal, undefined, 60_000);
           const rawName = new URL(res.url || url).pathname.split("/").filter(Boolean).pop() || host;
@@ -595,7 +596,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         setToast(null);
         setLoading(false);
         tabs.failed(tabKey);
-        setError(`Couldn't open that link. ${e?.message ?? ""}`.trim());
+        setError(translateUi("Couldn't open that link. {v0}", { v0: e?.message ?? "" }).trim());
       }
     },
     [beginOpen, openBytes, tabs, tabKey],
@@ -608,7 +609,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
       const data = await readPdfResponse(res, signal);
       if (!signal.aborted) await openBytes("Folio sample.pdf", data, undefined, signal);
     } catch {
-      if (!signal.aborted) { setLoading(false); tabs.failed(tabKey); setError("Couldn't open the sample document."); }
+      if (!signal.aborted) { setLoading(false); tabs.failed(tabKey); setError(translateUi("Couldn't open the sample document.")); }
     }
   }, [beginOpen, openBytes, tabs, tabKey]);
 
@@ -669,7 +670,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
       nextSelection.current = null;
       setPinned(null);
       setTool(next); setContentEditing(editContent); return true;
-    } catch { flash("Annotations aren’t supported for this document"); return false; }
+    } catch { flash(translateUi("Annotations aren’t supported for this document")); return false; }
   };
   const leaveEditMode = () => chooseTool("select");
   const startSigning = async () => { if (await chooseTool("select")) setSigning(true); };
@@ -677,7 +678,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
   useEffect(() => {
     if (!doc || tool !== "ink" || drawTool === "Pen") return;
     return drawShapes(containerRef.current!, viewerRef.current!, drawTool, colors.ink!, (page, data) => {
-      void markupRef.current!.addShape(page, drawTool, data).catch(() => flash("Couldn't add the shape"));
+      void markupRef.current!.addShape(page, drawTool, data).catch(() => flash(translateUi("Couldn't add the shape")));
     });
   }, [doc, tool, drawTool, colors.ink, scale, rotation, flash]);
 
@@ -711,7 +712,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     const id = await markupRef.current!.highlightSelection(hex);
     if (owner !== docRef.current) return;
     if (!id) {
-      flash("Couldn't highlight that selection");
+      flash(translateUi("Couldn't highlight that selection"));
       return;
     }
     if (note) markupRef.current!.setNote(id, note);
@@ -798,7 +799,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
   const removeHighlight = (id: string) => {
     markupRef.current!.remove(id);
     setHighlightMenu(null);
-    flash("Highlight removed");
+    flash(translateUi("Highlight removed"));
   };
 
   const askAbout = (text: string, pageNumber: number) => {
@@ -892,19 +893,19 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
   // rewrites the signed bytes afterwards (the copy opens in a new tab as it was saved).
   const startDigitalSigning = async () => {
     if (contentRef.current && !(await contentRef.current.finish())) return;
-    if (pageOrder) { flash("Save or cancel the new page order before signing."); return; }
+    if (pageOrder) { flash(translateUi("Save or cancel the new page order before signing.")); return; }
     if (await chooseTool("select")) setDialog("digital-sign");
   };
   const signDigitally = async (request: DigitalSignRequest) => {
     const source = docRef.current;
-    if (!source || !window.folioDesktop) return "The document changed. Open Sign digitally again.";
+    if (!source || !window.folioDesktop) return translateUi("The document changed. Open Sign digitally again.");
     let copy;
-    try { copy = await currentBytes(source, undefined); } catch { return "Couldn't prepare this document for signing."; }
-    if (!copy) return "Another export is in progress. Try again in a moment.";
+    try { copy = await currentBytes(source, undefined); } catch { return translateUi("Couldn't prepare this document for signing."); }
+    if (!copy) return translateUi("Another export is in progress. Try again in a moment.");
     const result = await window.folioDesktop.signing.sign({ ...request, pdf: copy.bytes, name: source.name });
     if (result && "error" in result) return result.error;
     // The copy opens on the page that was signed.
-    if (result) { tabs.open([{ kind: "bytes", name: result.name, data: result.data, page: request.page }]); flash("Signed copy saved"); }
+    if (result) { tabs.open([{ kind: "bytes", name: result.name, data: result.data, page: request.page }]); flash(translateUi("Signed copy saved")); }
     return null;
   };
 
@@ -915,10 +916,10 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     try {
       const copy = await currentBytes(source, pages);
       if (docRef.current !== source) return;
-      if (!copy) { flash("Another export is in progress. Try again in a moment."); return; }
+      if (!copy) { flash(translateUi("Another export is in progress. Try again in a moment.")); return; }
       saveBlob(pdfBlob(copy.bytes), source.name.replace(/\.pdf$/i, "") + " (selected pages).pdf");
     } catch {
-      if (docRef.current === source) flash("Couldn't export the selected pages.");
+      if (docRef.current === source) flash(translateUi("Couldn't export the selected pages."));
     }
   };
 
@@ -929,13 +930,13 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     try {
       if (format === "markdown") {
         const ok = await copyText(notesMarkdown(doc.name, controller.state));
-        if (docRef.current === doc) flash(ok ? "Markdown copied" : "Copy failed");
+        if (docRef.current === doc) flash(ok ? translateUi("Markdown copied") : translateUi("Copy failed"));
       } else {
         const json = await notesJson(doc, controller.state);
         if (docRef.current === doc) saveBlob(new Blob([json], { type: "application/json" }), doc.name.replace(/\.pdf$/i, "") + ".notes.json");
       }
     } catch {
-      if (docRef.current === doc) flash("Couldn't export notes");
+      if (docRef.current === doc) flash(translateUi("Couldn't export notes"));
     }
   };
 
@@ -959,9 +960,9 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           const original = doc.edits?.original ?? pdfBlob(await doc.pdf.getData());
           await saveVersion({ id: doc.sourceId ?? doc.id, name: doc.name, data: original },
             { id: await contentKey(copy.bytes), name, data: blob }, changes);
-        } catch { historyMessage = "Copy exported. Couldn’t save its version history on this device."; }
+        } catch { historyMessage = translateUi("Copy exported. Couldn’t save its version history on this device."); }
       } else if (changes.length) {
-        historyMessage = "Copy exported. History is available for unencrypted PDFs up to 50 MB.";
+        historyMessage = translateUi("Copy exported. History is available for unencrypted PDFs up to 50 MB.");
       }
       if (docRef.current !== doc) return;
       setError(null);
@@ -969,15 +970,15 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         await openBytes(name, copy.bytes, undefined, beginOpen(), pageOrder ? pageOrder.indexOf(pageRef.current) + 1 : pageRef.current, undefined, doc, pageOrder);
       } else if (pageOrder) {
         setPageDraft(draft => draft?.order === pageOrder ? { order: pageOrder, copy: copy.bytes } : draft);
-        flash("Downloading reordered copy");
+        flash(translateUi("Downloading reordered copy"));
       } else {
-        flash(copy.annotated ? "Saved a copy with your highlights and notes" : "Download started");
+        flash(copy.annotated ? translateUi("Saved a copy with your highlights and notes") : translateUi("Download started"));
       }
       if (historyMessage) flash(historyMessage);
     } catch {
       if (docRef.current === doc) {
         if (dirty) setDirty(true);
-        setError("Couldn't save a copy of this document.");
+        setError(translateUi("Couldn't save a copy of this document."));
       }
     } finally { savingCopy.current = false; }
   };
@@ -996,7 +997,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
       if (docRef.current !== source) { void snapshot.loadingTask.destroy(); return; }
       setPrintCopy({ pdf: snapshot, bytes: copy.bytes, page: pageOrder ? pageOrder.indexOf(page) + 1 : page, name: source.name });
     } catch {
-      if (docRef.current === doc) setError("Couldn't print this document.");
+      if (docRef.current === doc) setError(translateUi("Couldn't print this document."));
     } finally {
       preparingPrint.current = false;
     }
@@ -1014,7 +1015,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           frame.contentWindow?.print();
         } catch {
           // The desktop shell denies blob: pop-ups, so a saved copy is the working fallback there.
-          if (window.folioDesktop) { saveBytes(bytes); flash("Couldn't print — saved a copy instead"); }
+          if (window.folioDesktop) { saveBytes(bytes); flash(translateUi("Couldn't print — saved a copy instead")); }
           else window.open(url, "_blank");
         }
       }, 250);
@@ -1039,7 +1040,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           break;
         case "word": {
           const signal = beginOpen();
-          setLoading(true); setError(null); setToast(`Converting ${source.name} to PDF…`);
+          setLoading(true); setError(null); setToast(translateUi("Converting {v0} to PDF…", { v0: source.name }));
           try {
             const file = await window.folioDesktop!.openDocument(source.file);
             if (signal.aborted) return;
@@ -1049,13 +1050,13 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           } catch (error) {
             if (signal.aborted) return;
             setToast(null); setLoading(false); tabs.failed(tabKey);
-            setError(`Couldn't convert “${source.name}” to PDF. ${(error as Error).message}`);
+            setError(translateUi("Couldn't convert “{v0}” to PDF. {v1}", { v0: source.name, v1: (error as Error).message }));
           }
           break;
         }
         case "sample": await openSample(); break;
         case "url": await openUrl(source.url); break;
-        case "converting": setLoading(true); setToast(`Converting ${source.name} to PDF…`); break;
+        case "converting": setLoading(true); setToast(translateUi("Converting {v0} to PDF…", { v0: source.name })); break;
         case "error": setLoading(false); setToast(null); setError(source.message); tabs.failed(tabKey); break;
       }
     };
@@ -1110,7 +1111,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
 
   useEffect(() => { writeSetting("folio:sidebar", sidebar ? "1" : "0"); }, [sidebar]);
   const setNightTo = (next: boolean) => {
-    if (!writeSetting("folio:night", next ? "1" : "0")) flash("PDF dark mode changed, but couldn't save the preference.");
+    if (!writeSetting("folio:night", next ? "1" : "0")) flash(translateUi("PDF dark mode changed, but couldn't save the preference."));
     setNight(next);
   };
 
@@ -1272,7 +1273,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
       const url = !files?.length && e.dataTransfer ? droppedUrl(e.dataTransfer) : null;
       if (files?.length) openFiles(files);
       else if (url) openUrlDialog(url);
-      else setError("Drop a PDF file or a link to a PDF.");
+      else setError(translateUi("Drop a PDF file or a link to a PDF."));
     };
     // Pasting a link (outside text fields) fills in Open from URL too.
     const paste = (e: ClipboardEvent) => {
@@ -1328,16 +1329,16 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
     >
       <header className="topbar" ref={headerRef}>
         <div className="topbar-left">
-          <button className="brand" onClick={doc ? () => tabs.library() : undefined} title={doc ? "Back to library" : "Folio"}>
+          <button className="brand" onClick={doc ? () => tabs.library() : undefined} title={doc ? translateUi("Back to library") : "Folio"}>
             <span className="brand-mark" />
             <span className="brand-name">Folio</span>
           </button>
           {doc && (
             <>
-              <IconButton icon="sidebar" label={keys("Toggle sidebar (Ctrl+\\)")} active={sidebar} onClick={() => setSidebar(!sidebar)} />
+              <IconButton icon="sidebar" label={keys(translateUi("Toggle sidebar (Ctrl+\\)"))} active={sidebar} onClick={() => setSidebar(!sidebar)} />
               {!multipleTabs && <div className="doc-title" title={doc.name}>
                 <span>{doc.name}</span>
-                {unsaved && <span className="dirty-dot" role="img" aria-label="Unsaved changes" title="Unsaved changes" />}
+                {unsaved && <span className="dirty-dot" role="img" aria-label={translateUi("Unsaved changes")} title={translateUi("Unsaved changes")} />}
               </div>}
             </>
           )}
@@ -1345,28 +1346,28 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
 
         <div className="topbar-center">
           {doc && (
-            <div className="segmented" role="toolbar" aria-label="Tools">
+            <div className="segmented" role="toolbar" aria-label={translateUi("Tools")}>
               {TOOLS.map((t) => (
                 <button
                   key={t.id}
                   className={!contentEditing && tool === t.id ? "on" : ""}
-                  aria-label={t.label}
+                  aria-label={translateKnownUi(t.label)}
                   aria-pressed={!contentEditing && tool === t.id}
                   onClick={() => chooseTool(t.id)}
-                  title={`${t.id === "highlight" ? "Automatically highlight selected text" : t.label} (${t.key})`}
+                  title={`${t.id === "highlight" ? translateUi("Automatically highlight selected text") : translateKnownUi(t.label)} (${t.key})`}
                 >
                   <Icon name={t.icon} size={16} />
-                  <span>{t.label}</span>
+                  <span>{translateKnownUi(t.label)}</span>
                 </button>
               ))}
               {window.folioDesktop ? <SignMenu onHandwritten={startSigning} onDigital={() => void startDigitalSigning()} />
-                : <button onClick={startSigning} aria-label="Sign" title="Add a signature"><Icon name="signature" size={16} /><span>Sign</span></button>}
+                : <button onClick={startSigning} aria-label={translateUi("Sign")} title={translateUi("Add a signature")}><Icon name="signature" size={16} /><span>{translateUi("Sign")}</span></button>}
               <button className={contentEditing ? "on edit-mode-toggle" : "edit-mode-toggle"} aria-pressed={contentEditing}
-                aria-label={contentEditing ? "Exit edit mode" : "Edit mode"} title={contentEditing ? "Exit edit mode" : "Edit existing text and images"}
+                aria-label={contentEditing ? translateUi("Exit edit mode") : translateUi("Edit mode")} title={contentEditing ? translateUi("Exit edit mode") : translateUi("Edit existing text and images")}
                 onClick={() => contentEditing ? leaveEditMode() : chooseTool("select", true)}>
-                <Icon name={contentEditing ? "check" : "edit"} size={16} /><span>{contentEditing ? "Exit edit mode" : "Edit mode"}</span>
+                <Icon name={contentEditing ? "check" : "edit"} size={16} /><span>{contentEditing ? translateUi("Exit edit mode") : translateUi("Edit mode")}</span>
               </button>
-              {(doc.sourceId || editorDirty) && <button aria-label="Save copy" title="Save edited copy" onClick={download}><Icon name="download" size={16} /><span>Save copy</span></button>}
+              {(doc.sourceId || editorDirty) && <button aria-label={translateUi("Save copy")} title={translateUi("Save edited copy")} onClick={download}><Icon name="download" size={16} /><span>{translateUi("Save copy")}</span></button>}
             </div>
           )}
         </div>
@@ -1374,8 +1375,8 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         <div className="topbar-right">
           {doc && (
             <>
-              <IconButton icon="sparkle" label="Ask AI" active={aiOpen} onClick={() => { setHistoryOpen(false); setAiOpen(!aiOpen); }} />
-              <IconButton icon="search" label={keys("Search (Ctrl+F)")} active={searchOpen} onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))} />
+              <IconButton icon="sparkle" label={translateUi("Ask AI")} active={aiOpen} onClick={() => { setHistoryOpen(false); setAiOpen(!aiOpen); }} />
+              <IconButton icon="search" label={keys(translateUi("Search (Ctrl+F)"))} active={searchOpen} onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))} />
             </>
           )}
           <MoreMenu
@@ -1454,9 +1455,9 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           </div>
           {contentEditing && doc && <ContentEditor key={doc.pdf.loadingTask.docId} ref={contentRef} nextSelection={nextSelection} pdf={doc.pdf} viewer={viewerRef.current!} bus={busRef.current!}
             onDirty={setEditorDirty} snapshot={async () => {
-              if (doc.password || await doc.pdf.getPermissions() || (await doc.pdf.getSignatures())?.length) throw new Error("Editing requires an unsigned, unencrypted PDF.");
+              if (doc.password || await doc.pdf.getPermissions() || (await doc.pdf.getSignatures())?.length) throw new Error(translateUi("Editing requires an unsigned, unencrypted PDF."));
               const copy = await currentBytes(doc, []);
-              if (!copy || docRef.current !== doc) throw new Error("The document changed. Try again.");
+              if (!copy || docRef.current !== doc) throw new Error(translateUi("The document changed. Try again."));
               return copy.bytes;
             }} apply={async (bytes, change) => docRef.current === doc && !!await openBytes(doc.name, bytes, undefined, opening.current!.signal, undefined, { doc, change })} />}
           {doc && <div className="page-text-status" role="status">{textStatus}</div>}
@@ -1469,45 +1470,45 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           )}
 
           {doc && !contentEditing && PALETTE[tool] && (
-            <div className="color-pill" role="toolbar" aria-label="Annotation options">
+            <div className="color-pill" role="toolbar" aria-label={translateUi("Annotation options")}>
               {tool === "ink" && (
-                <select className="draw-tool" aria-label="Drawing tool" value={drawTool}
+                <select className="draw-tool" aria-label={translateUi("Drawing tool")} value={drawTool}
                   onChange={e => setDrawTool(e.target.value as typeof drawTool)}>
-                  {["Pen", "Rectangle", "Oval", "Arrow"].map(name => <option key={name}>{name}</option>)}
+                  {["Pen", "Rectangle", "Oval", "Arrow"].map(name => <option key={name} value={name}>{translateKnownUi(name)}</option>)}
                 </select>
               )}
               {tool === "ink" && drawTool === "Pen" && (
-                <select className="draw-tool" aria-label="Pen width" title="Pen width" defaultValue={markupRef.current?.penWidth ?? 1}
+                <select className="draw-tool" aria-label={translateUi("Pen width")} title={translateUi("Pen width")} defaultValue={markupRef.current?.penWidth ?? 1}
                   onChange={e => markupRef.current?.setPenWidth(Number(e.target.value))}>
-                  <option value={1}>Thin</option>
-                  <option value={3}>Medium</option>
-                  <option value={6}>Thick</option>
+                  <option value={1}>{translateUi("Thin")}</option>
+                  <option value={3}>{translateUi("Medium")}</option>
+                  <option value={6}>{translateUi("Thick")}</option>
                 </select>
               )}
-              <div className="color-options" role="radiogroup" aria-label="Color">
+              <div className="color-options" role="radiogroup" aria-label={translateUi("Color")}>
                 {PALETTE[tool]!.map((c) => (
                   <button
                     key={c.hex}
                     className={colors[tool] === c.hex ? "on" : ""}
                     style={{ "--swatch": c.hex } as React.CSSProperties}
                     onClick={() => chooseColor(c.hex)}
-                    title={c.name}
+                    title={translateKnownUi(c.name)}
                     role="radio"
                     aria-checked={colors[tool] === c.hex}
                   />
                 ))}
               </div>
               <span className="divider" />
-              <button className="pill-btn" onClick={() => busRef.current!.dispatch("editingaction", { source: null, name: "undo" })} title={keys("Undo (Ctrl+Z)")}>
+              <button className="pill-btn" onClick={() => busRef.current!.dispatch("editingaction", { source: null, name: "undo" })} title={keys(translateUi("Undo (Ctrl+Z)"))}>
                 <Icon name="undo" size={16} />
               </button>
-              <button className="pill-done" onClick={() => chooseTool("select")}>Done</button>
+              <button className="pill-done" onClick={() => chooseTool("select")}>{translateUi("Done")}</button>
             </div>
           )}
 
           {doc && (
-            <div className="pill" role="toolbar" aria-label="Navigation">
-              <button className="pill-btn" onClick={() => goTo(page - 1)} disabled={page <= 1} title="Previous page">
+            <div className="pill" role="toolbar" aria-label={translateUi("Navigation")}>
+              <button className="pill-btn" onClick={() => goTo(page - 1)} disabled={page <= 1} title={translateUi("Previous page")}>
                 <Icon name="chevronUp" size={17} />
               </button>
               <form
@@ -1526,23 +1527,23 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
                   onFocus={(e) => e.target.select()}
                   onBlur={() => setPageInput(String(pageRef.current))}
                   style={{ width: `calc(${Math.max(2, String(numPages).length)}ch + 22px)` }}
-                  aria-label="Page number"
+                  aria-label={translateUi("Page number")}
                 />
-                <span className="page-total">of {numPages}</span>
+                <span className="page-total">{translateUi("of")} {numPages.toLocaleString(locale())}</span>
               </form>
-              <button className="pill-btn" onClick={() => goTo(page + 1)} disabled={page >= numPages} title="Next page">
+              <button className="pill-btn" onClick={() => goTo(page + 1)} disabled={page >= numPages} title={translateUi("Next page")}>
                 <Icon name="chevronDown" size={17} />
               </button>
               <span className="divider" />
-              <button className="pill-btn" onClick={() => zoom(-1)} title={keys("Zoom out (Ctrl −)")}>
+              <button className="pill-btn" onClick={() => zoom(-1)} title={keys(translateUi("Zoom out (Ctrl −)"))}>
                 <Icon name="minus" size={17} />
               </button>
               <ZoomMenu scale={scale} onPick={setScaleValue} spread={spread} onToggleSpread={toggleSpread} />
-              <button className="pill-btn" onClick={() => zoom(1)} title={keys("Zoom in (Ctrl +)")}>
+              <button className="pill-btn" onClick={() => zoom(1)} title={keys(translateUi("Zoom in (Ctrl +)"))}>
                 <Icon name="plus" size={17} />
               </button>
               <span className="divider wide-only" />
-              <button className="pill-btn wide-only" onClick={rotate} title="Rotate (R)">
+              <button className="pill-btn wide-only" onClick={rotate} title={keys(translateUi("Rotate (R)"))}>
                 <Icon name="rotate" size={17} />
               </button>
             </div>
@@ -1601,8 +1602,8 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
           )}
 
           {focus && (
-            <button className="exit-focus" onClick={toggleFocus} title="Exit focus mode">
-              <kbd>Esc</kbd> to exit focus mode
+            <button className="exit-focus" onClick={toggleFocus} title={translateUi("Exit focus mode")}>
+              <kbd>{keys("Esc")}</kbd> {translateUi("to exit focus mode")}
             </button>
           )}
         </main>
@@ -1638,7 +1639,7 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         <div className="drop-overlay">
           <div className="drop-card">
             <Icon name="upload" size={30} />
-            <p>Drop a PDF or link to open</p>
+            <p>{translateUi("Drop a PDF or link to open")}</p>
           </div>
         </div>
       )}
@@ -1661,12 +1662,12 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
         scanLanguages={scanLanguages} onScanLanguages={next => {
           setScanLanguages(next);
           try { localStorage.setItem("folio:scan-language", next.join("+")); }
-          catch { flash("Scan languages changed, but couldn't save the preference."); }
+          catch { flash(translateUi("Scan languages changed, but couldn't save the preference.")); }
         }}
         wheelPaging={wheelPaging} onWheelPaging={(next) => {
           setWheelPaging(next);
           try { localStorage.setItem("folio:wheel-paging", next ? "1" : "0"); }
-          catch { flash("Page scrolling changed, but couldn't save the preference."); }
+          catch { flash(translateUi("Page scrolling changed, but couldn't save the preference.")); }
         }}
         onOpenChangelog={() => setDialog("changelog")} onClose={() => setDialog(null)} />}
       {/* Closing goes back to Settings, where the changelog is opened from. */}
@@ -1679,19 +1680,19 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
       {doc && signing && <SignatureDialog key={doc.id + ":" + page} pdf={doc.pdf} pageNumber={page} targets={signatureTargets}
         onClose={() => setSigning(false)} onApprove={async (signature, rect) => {
           await placeSignature(viewerRef.current!, doc.pdf, page, signature, rect);
-          markDirty(); setSignatureDismissed(true); flash(keys("Signature added. Ctrl+Z to undo; Save copy to export."));
+          markDirty(); setSignatureDismissed(true); flash(keys(translateUi("Signature added. Ctrl+Z to undo; Save copy to export.")));
         }} />}
       {doc && !contentEditing && !signing && dialog !== "digital-sign" && signatureTargets.length > 0 && !signatureDismissed && <div className="signature-suggestion" role="status">
-        <span>{signatureTargets[0].kind === "field" ? "Signature field detected" : "Possible signature area"} on page {page}</span>
-        <button className="btn primary" onClick={startSigning}>Review signature</button>
-        <button className="pill-btn" aria-label="Dismiss signature suggestion" onClick={() => setSignatureDismissed(true)}><Icon name="close" size={14} /></button>
+        <span>{signatureTargets[0].kind === "field" ? translateUi("Signature field detected") : translateUi("Possible signature area")} {translateUi("on page")} {page}</span>
+        <button className="btn primary" onClick={startSigning}>{translateUi("Review signature")}</button>
+        <button className="pill-btn" aria-label={translateUi("Dismiss signature suggestion")} onClick={() => setSignatureDismissed(true)}><Icon name="close" size={14} /></button>
       </div>}
 
       {updateVersion && (
         <div className="update-card" role="status">
           <div>
-            <strong>Folio {updateVersion} is ready</strong>
-            <span>Restart to update. Installation on close follows your auto-update setting.</span>
+            <strong>Folio {updateVersion} {translateUi("is ready")}</strong>
+            <span>{translateUi("Restart to update. Installation on close follows your auto-update setting.")}</span>
           </div>
           <button
             className="btn primary"
@@ -1699,9 +1700,9 @@ export default function App({ tabs, tabKey, upgradeNotes }: { tabs: DocumentTabs
               window.folioDesktop?.installUpdate();
             }}
           >
-            Restart
+            {translateUi("Restart")}
           </button>
-          <button className="pill-btn" onClick={() => setUpdateVersion(null)} aria-label="Later" title="Later">
+          <button className="pill-btn" onClick={() => setUpdateVersion(null)} aria-label={translateUi("Later")} title={translateUi("Later")}>
             <Icon name="close" size={15} />
           </button>
         </div>

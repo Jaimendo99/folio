@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { openFolioDatabase } from "./recent";
 
 export type PdfChange =
@@ -32,7 +33,7 @@ async function transaction<T>(mode: IDBTransactionMode, run: (tx: IDBTransaction
   const tx = db.transaction(["versions", "versionPdfs"], mode);
   const done = new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
-    tx.onabort = () => reject(tx.error ?? new Error("Version history was not saved."));
+    tx.onabort = () => reject(tx.error ?? new Error(translateUi("Version history was not saved.")));
   });
   const work = run(tx).catch(error => { try { tx.abort(); } catch {} throw error; });
   const [value] = await Promise.all([work, done]);

@@ -1,3 +1,4 @@
+import { setLanguage } from "./i18n";
 import { init, type WrappedPdfiumModule } from "@embedpdf/pdfium";
 import wasmUrl from "@embedpdf/pdfium/pdfium.wasm?url";
 import { checkPdfSize } from "./pdfInput";
@@ -17,6 +18,8 @@ export type Change = { kind: "text"; index: number; text: string } | { kind: "im
 export type EditorRequest = { source: Uint8Array } | { page: number } | { page: number; change: Change; snapshot: Uint8Array };
 export type EditorReply = { page: number; targets: EditTarget[] } | { bytes: Uint8Array } | { error: string; page?: number };
 
+// The renderer translates worker errors using its current language.
+setLanguage("en");
 const ready = (async () => {
   const response = await fetch(wasmUrl);
   if (!response.ok) throw new Error("Couldn't load the PDF editor.");

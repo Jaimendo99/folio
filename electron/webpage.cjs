@@ -1,3 +1,4 @@
+const { t } = require("./i18n.cjs");
 // Turns a webpage into a PDF: load it in a hidden, locked-down window, then print it with Chromium.
 // The page runs in its own throwaway session (no cookies or storage shared with Folio or other
 // captures), sandboxed, with no Node.js, no permissions, no pop-ups, and no downloads.
@@ -142,13 +143,13 @@ async function captureWebpage(rawUrl, approvedLocal, signal) {
         generateDocumentOutline: true,
         generateTaggedPDF: true,
       });
-      if (data.length > MAX_DOCUMENT_BYTES) return { error: "The converted webpage is larger than 300 MB." };
+      if (data.length > MAX_DOCUMENT_BYTES) return { error: t("The converted webpage is larger than 300 MB.") };
       return { name: safePdfName(contents.getTitle(), new URL(contents.getURL() || url.toString()).hostname), data };
     })(), TOTAL_TIMEOUT_MS, "timeout")]);
   } catch (error) {
     if (signal?.aborted) return { cancelled: true };
-    if (error?.message === "timeout") return { error: "The webpage took too long to load." };
-    return { error: `Couldn't load that webpage${error?.code ? ` (${error.code})` : ""}.` };
+    if (error?.message === "timeout") return { error: t("The webpage took too long to load.") };
+    return { error: t("Couldn't load that webpage{v0}.", { v0: error?.code ? ` (${error.code})` : "" }) };
   } finally {
     win?.destroy();
     guard.close();

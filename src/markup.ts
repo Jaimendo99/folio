@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 // Highlights, drawings, text boxes and notes as first-class, auto-saved document data.
 // pdf.js owns the on-page editors; this keeps a saved copy per document and recreates the
 // editors whenever the document is opened again.
@@ -294,10 +295,10 @@ export class MarkupController {
 
   async addShape(page: number, shape: NonNullable<Mark["shape"]>, data: Record<string, unknown>) {
     const layer = this.#ui?.getLayer(page);
-    if (!layer) throw new Error("The page is not ready.");
+    if (!layer) throw new Error(translateUi("The page is not ready."));
     const editor = await layer.deserialize(data);
     if (this.#ui?.getLayer(page) !== layer) return;
-    if (!editor) throw new Error("The drawing could not be created.");
+    if (!editor) throw new Error(translateUi("The drawing could not be created."));
     editor.__folioShape = shape;
     layer.add(editor);
     this.sync();
@@ -404,7 +405,7 @@ export class MarkupController {
     const marks: Record<string, unknown>[] = [];
     for (const [pageIndex, pending] of this.#pending) {
       const [, , pageRight] = (await pdf.getPage(pageIndex + 1)).view;
-      if (generation !== this.#generation) throw new Error("The document changed.");
+      if (generation !== this.#generation) throw new Error(translateUi("The document changed."));
       for (const mark of pending) {
         const data: Record<string, unknown> = { ...mark.data, pageIndex, deleted: false };
         const top = (mark.data.rect as number[] | undefined)?.[3];

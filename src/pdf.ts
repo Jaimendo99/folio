@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { PDFDocumentProxy } from "pdfjs-dist";
@@ -50,7 +51,7 @@ export async function copyPdfPages(pdf: PDFDocumentProxy, pages: number[], signa
   const snapshot = pdf.annotationStorage.size ? await loadPdf(await pdf.saveDocument(), signal, password) : pdf;
   try {
     const bytes = await snapshot.extractPages([{ document: null, includePages, pageIndices }]);
-    if (!bytes?.length) throw new Error("Couldn't copy the selected pages.");
+    if (!bytes?.length) throw new Error(translateUi("Couldn't copy the selected pages."));
     return bytes;
   } finally {
     if (snapshot !== pdf) await snapshot.loadingTask.destroy();

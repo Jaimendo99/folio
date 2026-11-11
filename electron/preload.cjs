@@ -27,7 +27,11 @@ contextBridge.exposeInMainWorld("folioDesktop", {
     return () => ipcRenderer.removeListener("folio:tab-command", listener);
   },
   /** Returns the converted PDF to the tab that opened the Word document. */
-  openDocument: (file) => ipcRenderer.invoke("folio:open-document", webUtils.getPathForFile(file)),
+  async openDocument(file) {
+    const result = await ipcRenderer.invoke("folio:open-document", webUtils.getPathForFile(file));
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
   ready: () => ipcRenderer.invoke("folio:ready"),
   platform: process.platform,
   systemLocale: ipcRenderer.sendSync("folio:system-locale"),

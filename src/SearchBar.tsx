@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { keys } from "./platform";
@@ -34,16 +35,16 @@ export function SearchBar({
   const step = (previous: boolean) => query && onFind(query, { again: true, previous, caseSensitive, entireWord });
 
   const status =
-    !query ? "" : result.state === 3 ? "Searching…" : result.total === 0 ? "No results" : `${result.current} of ${result.total}`;
+    !query ? "" : result.state === 3 ? translateUi("Searching…") : result.total === 0 ? translateUi("No results") : translateUi("{v0} of {v1}", { v0: result.current, v1: result.total });
 
   return (
     <div className="searchbar" role="search">
       <Icon name="search" size={16} />
       <input
         id="folio-search"
-        aria-label="Find in document"
+        aria-label={translateUi("Find in document")}
         autoFocus
-        placeholder="Find in document"
+        placeholder={translateUi("Find in document")}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={(e) => {
@@ -58,20 +59,20 @@ export function SearchBar({
         spellCheck={false}
       />
       <span className={`search-status ${query && result.total === 0 && result.state !== 3 ? "miss" : ""}`}>{status}</span>
-      <button className={`chip ${caseSensitive ? "on" : ""}`} onClick={() => setCase(!caseSensitive)} title="Match case">
+      <button className={`chip ${caseSensitive ? "on" : ""}`} onClick={() => setCase(!caseSensitive)} title={translateUi("Match case")}>
         Aa
       </button>
-      <button className={`chip ${entireWord ? "on" : ""}`} onClick={() => setWord(!entireWord)} title="Whole words">
+      <button className={`chip ${entireWord ? "on" : ""}`} onClick={() => setWord(!entireWord)} title={translateUi("Whole words")}>
         <u>ab</u>
       </button>
       <span className="divider" />
-      <button className="pill-btn" onClick={() => step(true)} disabled={!result.total} title={keys("Previous (Shift+Enter)")}>
+      <button className="pill-btn" onClick={() => step(true)} disabled={!result.total} title={keys(translateUi("Previous (Shift+Enter)"))}>
         <Icon name="chevronUp" size={16} />
       </button>
-      <button className="pill-btn" onClick={() => step(false)} disabled={!result.total} title="Next (Enter)">
+      <button className="pill-btn" onClick={() => step(false)} disabled={!result.total} title={keys(translateUi("Next (Enter)"))}>
         <Icon name="chevronDown" size={16} />
       </button>
-      <button className="pill-btn" onClick={onClose} title="Close (Esc)">
+      <button className="pill-btn" onClick={onClose} title={keys(translateUi("Close (Esc)"))}>
         <Icon name="close" size={15} />
       </button>
     </div>

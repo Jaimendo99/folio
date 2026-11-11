@@ -1,3 +1,5 @@
+import { keys } from "./platform";
+import { locale, translateUi } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import { copyImage } from "./clipboard";
@@ -55,14 +57,14 @@ export function ImageMenu({ x, y, stageWidth, href, onView, onOpen }: {
   const width = href ? 300 : 150;
   const left = Math.min(Math.max(8, x - width / 2), Math.max(8, stageWidth - width - 8));
   return (
-    <div className="selection-popover" role="toolbar" aria-label="Image" style={{ left, top: Math.max(8, y - 54) }}>
+    <div className="selection-popover" role="toolbar" aria-label={translateUi("Image")} style={{ left, top: Math.max(8, y - 54) }}>
       <div className="pop-row">
-        <button className="pop-btn" onClick={onView} title="View larger in Folio">
-          <Icon name="expand" size={15} /> View larger
+        <button className="pop-btn" onClick={onView} title={translateUi("View larger in Folio")}>
+          <Icon name="expand" size={15} /> {translateUi("View larger")}
         </button>
         {href && (
           <button className="pop-btn" onClick={onOpen} title={href}>
-            <Icon name="link" size={15} /> Open in browser
+            <Icon name="link" size={15} /> {translateUi("Open in browser")}
           </button>
         )}
       </div>
@@ -117,27 +119,27 @@ export function ImageViewer({ pdf, target, onClose }: { pdf: PDFDocumentProxy; t
   };
 
   return (
-    <div className="image-viewer" role="dialog" aria-modal="true" aria-label="Image" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="image-viewer" role="dialog" aria-modal="true" aria-label={translateUi("Image")} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="image-viewer-bar">
-        <span className="image-viewer-title">Page {target.pageNumber}{image ? ` · ${image.width} × ${image.height}` : ""}</span>
+        <span className="image-viewer-title">{translateUi("Page")} {target.pageNumber}{image ? ` · ${image.width.toLocaleString(locale())} × ${image.height.toLocaleString(locale())}` : ""}</span>
         <button className="pop-btn" onClick={() => setActual(!actual)} disabled={!image}>
-          <Icon name={actual ? "fitPage" : "plus"} size={15} /> {actual ? "Fit to window" : "Actual size"}
+          <Icon name={actual ? "fitPage" : "plus"} size={15} /> {actual ? translateUi("Fit to window") : translateUi("Actual size")}
         </button>
         <button className="pop-btn" onClick={copyImageToClipboard} disabled={!image}>
           <Icon name={copy === "done" ? "check" : copy === "failed" ? "close" : "copy"} size={15} />{" "}
-          {copy === "done" ? "Copied" : copy === "failed" ? "Copy failed" : "Copy image"}
+          {copy === "done" ? translateUi("Copied") : copy === "failed" ? translateUi("Copy failed") : translateUi("Copy image")}
         </button>
         {target.href && (
           <a className="pop-btn" href={target.href} target="_blank" rel="noreferrer" title={target.href}>
-            <Icon name="link" size={15} /> Open in browser
+            <Icon name="link" size={15} /> {translateUi("Open in browser")}
           </a>
         )}
-        <button className="pop-btn icon-only" onClick={onClose} aria-label="Close" title="Close (Esc)">
+        <button className="pop-btn icon-only" onClick={onClose} aria-label={translateUi("Close")} title={keys(translateUi("Close (Esc)"))}>
           <Icon name="close" size={16} />
         </button>
       </div>
       <div className={`image-viewer-stage ${actual ? "actual" : ""}`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-        {failed ? <p className="image-viewer-msg">Couldn't show this image.</p> : !image && <p className="image-viewer-msg">Loading…</p>}
+        {failed ? <p className="image-viewer-msg">{translateUi("Couldn't show this image.")}</p> : !image && <p className="image-viewer-msg">{translateUi("Loading…")}</p>}
         <div ref={holder} className="image-viewer-holder" onClick={() => image && setActual(!actual)} />
       </div>
     </div>

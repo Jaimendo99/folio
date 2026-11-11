@@ -1,3 +1,4 @@
+const { t } = require("./i18n.cjs");
 const fs = require("node:fs");
 const fsp = fs.promises;
 const path = require("node:path");
@@ -6,9 +7,9 @@ const { pipeline } = require("node:stream/promises");
 
 const MAX_DOCUMENT_BYTES = 300 * 1024 * 1024;
 const MAX_HTML_BYTES = 48 * 1024 * 1024;
-const tooLarge = (limit = MAX_DOCUMENT_BYTES) => Object.assign(new Error("The file exceeds the size limit."),
-  { userMessage: limit === MAX_DOCUMENT_BYTES ? "It's larger than 300 MB." : "It's too large to convert." });
-const changed = () => new Error("The file changed while it was being opened.");
+const tooLarge = (limit = MAX_DOCUMENT_BYTES) => Object.assign(new Error(t("The file exceeds the size limit.")),
+  { userMessage: limit === MAX_DOCUMENT_BYTES ? t("It's larger than 300 MB.") : t("It's too large to convert.") });
+const changed = () => new Error(t("The file changed while it was being opened."));
 const digest = (data) => crypto.createHash("sha256").update(data).digest("hex");
 const sameFile = (a, b) => a.dev === b.dev && a.ino === b.ino;
 
@@ -16,7 +17,7 @@ const sameFile = (a, b) => a.dev === b.dev && a.ino === b.ino;
 async function withRegular(file, limit, use) {
   checkDiskPath(file);
   const before = await fsp.lstat(file, { bigint: true });
-  if (!before.isFile()) throw new Error("Choose a regular file.");
+  if (!before.isFile()) throw new Error(t("Choose a regular file."));
   const flags = fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0) | (fs.constants.O_NOFOLLOW ?? 0);
   const handle = await fsp.open(file, flags);
   try {
@@ -45,7 +46,7 @@ async function readRegular(file, limit = MAX_DOCUMENT_BYTES, expectedSize) {
 function checkDiskPath(file) {
   // UNC disk shares are supported. Device namespaces, named-pipe shares and alternate data streams aren't files.
   if (process.platform === "win32" && (/^\\\\(?:[?.]\\|[^\\]+\\(?:pipe|mailslot)\\)/i.test(file.replaceAll("/", "\\"))
-    || file.slice(2).includes(":"))) throw new Error("Choose a regular file.");
+    || file.slice(2).includes(":"))) throw new Error(t("Choose a regular file."));
 }
 
 async function stageWord(file, source, limit = MAX_DOCUMENT_BYTES) {

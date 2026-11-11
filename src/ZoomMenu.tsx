@@ -1,3 +1,4 @@
+import { translateKnownUi, translateUi } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./icons";
 
@@ -36,7 +37,7 @@ export function ZoomMenu({
 
   return (
     <div className="zoom" ref={ref}>
-      <button className="zoom-value" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title="Zoom">
+      <button className="zoom-value" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title={translateUi("Zoom")}>
         {Math.round(scale * 100)}%
       </button>
       {open && (
@@ -44,7 +45,7 @@ export function ZoomMenu({
           {PRESETS.map((p) => (
             <button key={p.value} role="menuitem" onClick={() => pick(p.value)}>
               {p.icon ? <Icon name={p.icon} size={15} /> : <span className="menu-spacer" />}
-              {p.label}
+              {translateKnownUi(p.label)}
             </button>
           ))}
           <hr />
@@ -58,7 +59,7 @@ export function ZoomMenu({
             }}
           >
             <Icon name="book" size={15} />
-            Two-page view
+            {translateUi("Two-page view")}
             <kbd className="menu-kbd">2</kbd>
           </button>
           <hr />

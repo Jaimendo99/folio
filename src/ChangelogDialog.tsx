@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { Fragment, useState, type ReactNode } from "react";
 import { Modal } from "./Dialogs";
 import { releases, type Release } from "./releaseNotes";
@@ -20,7 +21,7 @@ export function ChangelogDialog({ upgradeNotes, onClose }: { upgradeNotes?: Rele
   const [page, setPage] = useState(0);
   const pages = Math.ceil(releases.length / PAGE_SIZE);
   return (
-    <Modal title="What's new" onClose={onClose}>
+    <Modal title={translateUi("What's new")} onClose={onClose}>
       <div className="changelog">
         {upgradeNotes ? upgradeNotes.map((r) => (
           <section key={r.version}>
@@ -35,15 +36,15 @@ export function ChangelogDialog({ upgradeNotes, onClose }: { upgradeNotes?: Rele
         ))}
       </div>
       {upgradeNotes ? <div className="upgrade-footer">
-        <span>Read past changes in Settings → About.</span>
-        <button className="btn primary" autoFocus onClick={onClose}>Done</button>
+        <span>{translateUi("Read past changes in Settings → About.")}</span>
+        <button className="btn primary" autoFocus onClick={onClose}>{translateUi("Done")}</button>
       </div> : <footer className="history-footer">
-        <nav aria-label="Changelog pages">
-          <button className="btn ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>Newer releases</button>
-          <span aria-live="polite">Page {page + 1} of {pages}</span>
-          <button className="btn ghost" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>Older releases</button>
+        <nav aria-label={translateUi("Changelog pages")}>
+          <button className="btn ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>{translateUi("Newer releases")}</button>
+          <span aria-live="polite">{translateUi("Page")} {page + 1} {translateUi("of")} {pages}</span>
+          <button className="btn ghost" disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>{translateUi("Older releases")}</button>
         </nav>
-        <a href="https://github.com/Jaimendo99/folio/releases" target="_blank" rel="noreferrer">View releases on GitHub</a>
+        <a href="https://github.com/Jaimendo99/folio/releases" target="_blank" rel="noreferrer">{translateUi("View releases on GitHub")}</a>
       </footer>}
     </Modal>
   );

@@ -1,3 +1,4 @@
+import { translateKnownUi, translateUi } from "./i18n";
 import { locale } from "./i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "./pdf";
@@ -16,7 +17,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="pill-btn" onClick={onClose} aria-label="Close">
+          <button className="pill-btn" onClick={onClose} aria-label={translateUi("Close")}>
             <Icon name="close" size={16} />
           </button>
         </div>
@@ -28,8 +29,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
 
 export function formatBytes(n: number) {
   if (n < 1024) return `${n} B`;
-  if (n < 1024 ** 2) return `${(n / 1024).toFixed(0)} KB`;
-  return `${(n / 1024 ** 2).toFixed(1)} MB`;
+  if (n < 1024 ** 2) return `${(n / 1024).toLocaleString(locale(), { maximumFractionDigits: 0 })} KB`;
+  return `${(n / 1024 ** 2).toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB`;
 }
 
 const EDITIONS: Record<string, string> = {
@@ -46,24 +47,24 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let cancelled = false;
     desktop?.getAppInfo().then(info => { if (!cancelled) setInfo(info); }).catch(() => {
-      if (!cancelled) setError("Couldn't read application details.");
+      if (!cancelled) setError(translateUi("Couldn't read application details."));
     });
     return () => { cancelled = true; };
   }, [desktop]);
-  return <Modal title="About Folio" onClose={onClose}>
+  return <Modal title={translateUi("About Folio")} onClose={onClose}>
     <dl className="info-list">
-      <div><dt>Version</dt><dd>{info?.version ?? (desktop ? "Loading..." : "Browser edition")}</dd></div>
-      <div><dt>Edition</dt><dd>{EDITIONS[info?.mode ?? ""] ?? (desktop ? "Development" : "Web")}</dd></div>
-      {info && <div><dt>Location</dt><dd className="installation-path">{info.location}</dd></div>}
+      <div><dt>{translateUi("Version")}</dt><dd>{info?.version ?? (desktop ? translateUi("Loading...") : translateUi("Browser edition"))}</dd></div>
+      <div><dt>{translateUi("Edition")}</dt><dd>{translateKnownUi(EDITIONS[info?.mode ?? ""] ?? (desktop ? "Development" : "Web"))}</dd></div>
+      {info && <div><dt>{translateUi("Location")}</dt><dd className="installation-path">{info.location}</dd></div>}
     </dl>
     <div className="about-update">
-      {!desktop && <p>Documents and reading preferences stay on this device.</p>}
-      {info?.mode === "portable" && <p className="search-hint">Use the Setup installer for automatic updates and a single installed copy.</p>}
-      {info?.mode === "package" && <p className="search-hint">New versions arrive with your system's software updates (apt).</p>}
+      {!desktop && <p>{translateUi("Documents and reading preferences stay on this device.")}</p>}
+      {info?.mode === "portable" && <p className="search-hint">{translateUi("Use the Setup installer for automatic updates and a single installed copy.")}</p>}
+      {info?.mode === "package" && <p className="search-hint">{translateUi("New versions arrive with your system's software updates (apt).")}</p>}
       <div className="form-actions">
         {desktop && <button className="btn ghost" onClick={() => {
-          void desktop.openInstallation().then(message => setError(message || null)).catch(() => setError("Couldn't open the installation folder."));
-        }}>Open installation folder</button>}
+          void desktop.openInstallation().then(message => setError(message || null)).catch(() => setError(translateUi("Couldn't open the installation folder.")));
+        }}>{translateUi("Open installation folder")}</button>}
       </div>
       {error && <p className="form-error">{error}</p>}
     </div>
@@ -85,32 +86,32 @@ export function InfoDialog({ pdf, name, size, onClose }: { pdf: PDFDocumentProxy
       const { info } = (await pdf.getMetadata()) as { info: Record<string, string> };
       const first = await pdf.getPage(1);
       const [, , w, h] = first.view;
-      const inches = (pt: number) => (pt / 72).toFixed(2);
+      const inches = (pt: number) => (pt / 72).toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       setRows(
         [
-          ["File", name],
-          ["Title", info.Title],
-          ["Author", info.Author],
-          ["Subject", info.Subject],
-          ["Pages", String(pdf.numPages)],
-          ["Page size", `${inches(w)} × ${inches(h)} in`],
-          ["File size", formatBytes(size)],
-          ["Created", parsePdfDate(info.CreationDate)],
-          ["Modified", parsePdfDate(info.ModDate)],
-          ["Application", info.Creator],
-          ["Producer", info.Producer],
-          ["PDF version", info.PDFFormatVersion],
+          [translateUi("File"), name],
+          [translateUi("Title"), info.Title],
+          [translateUi("Author"), info.Author],
+          [translateUi("Subject"), info.Subject],
+          [translateUi("Pages"), pdf.numPages.toLocaleString(locale())],
+          [translateUi("Page size"), `${inches(w)} × ${inches(h)} ${translateUi("in")}`],
+          [translateUi("File size"), formatBytes(size)],
+          [translateUi("Created"), parsePdfDate(info.CreationDate)],
+          [translateUi("Modified"), parsePdfDate(info.ModDate)],
+          [translateUi("Application"), info.Creator],
+          [translateUi("Producer"), info.Producer],
+          [translateUi("PDF version"), info.PDFFormatVersion],
         ].filter((r): r is [string, string] => !!r[1]),
       );
     })();
-  }, [pdf, name, size]);
+  }, [pdf, name, size, locale()]);
 
   return (
-    <Modal title="Document info" onClose={onClose}>
+    <Modal title={translateUi("Document info")} onClose={onClose}>
       <dl className="info-list">
         {rows.map(([k, v]) => (
           <div key={k}>
-            <dt>{k}</dt>
+            <dt>{translateKnownUi(k)}</dt>
             <dd>{v}</dd>
           </div>
         ))}
@@ -149,11 +150,11 @@ const SHORTCUTS: [string, string][] = [
 
 export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   return (
-    <Modal title="Keyboard shortcuts" onClose={onClose}>
+    <Modal title={translateUi("Keyboard shortcuts")} onClose={onClose}>
       <dl className="info-list shortcuts">
         {SHORTCUTS.map(([k, v]) => (
           <div key={k}>
-            <dt>{k}</dt>
+            <dt>{translateKnownUi(k)}</dt>
             <dd>
               {keys(v).split(" ").map((key, i) => (key === "/" ? <span key={i}> / </span> : <kbd key={i}>{key}</kbd>))}
             </dd>
@@ -182,7 +183,7 @@ export function OpenUrlDialog({ initial = "", onSubmit, onClose }: { initial?: s
   const [value, setValue] = useState(initial);
   const url = parseWebUrl(value);
   return (
-    <Modal title="Open from URL" onClose={onClose}>
+    <Modal title={translateUi("Open from URL")} onClose={onClose}>
       <form
         className="password-form"
         onSubmit={(e) => {
@@ -190,15 +191,15 @@ export function OpenUrlDialog({ initial = "", onSubmit, onClose }: { initial?: s
           if (url) onSubmit(url);
         }}
       >
-        <p>Paste a link to a PDF or a webpage. Webpages become a PDF you can highlight and mark up. You can also drop or paste a link anywhere in Folio.</p>
-        <input type="url" autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder="https://example.com/article" aria-label="PDF URL" />
-        {value.trim() && !url && <p className="form-error">Enter an http:// or https:// address.</p>}
+        <p>{translateUi("Paste a link to a PDF or a webpage. Webpages become a PDF you can highlight and mark up. You can also drop or paste a link anywhere in Folio.")}</p>
+        <input type="url" autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder="https://example.com/article" aria-label={translateUi("PDF URL")} />
+        {value.trim() && !url && <p className="form-error">{translateUi("Enter an http:// or https:// address.")}</p>}
         <div className="form-actions">
           <button type="button" className="btn ghost" onClick={onClose}>
-            Cancel
+            {translateUi("Cancel")}
           </button>
           <button type="submit" className="btn primary" disabled={!url}>
-            Open
+            {translateUi("Open")}
           </button>
         </div>
       </form>
@@ -219,7 +220,7 @@ export function PasswordDialog({
 }) {
   const [pw, setPw] = useState("");
   return (
-    <Modal title="Password required" onClose={onCancel}>
+    <Modal title={translateUi("Password required")} onClose={onCancel}>
       <form
         className="password-form"
         onSubmit={(e) => {
@@ -228,16 +229,16 @@ export function PasswordDialog({
         }}
       >
         <p>
-          “{name}” is protected. Enter its password to open it.
+          “{name}{translateUi("” is protected. Enter its password to open it.")}
         </p>
-        <input type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Password" />
+        <input type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} placeholder={translateUi("Password")} />
         {error && <p className="form-error">{error}</p>}
         <div className="form-actions">
           <button type="button" className="btn ghost" onClick={onCancel}>
-            Cancel
+            {translateUi("Cancel")}
           </button>
           <button type="submit" className="btn primary" disabled={!pw}>
-            Open
+            {translateUi("Open")}
           </button>
         </div>
       </form>

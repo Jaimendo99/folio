@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { locale } from "./i18n";
 import { useEffect, useState } from "react";
 import { Modal } from "./Dialogs";
@@ -98,8 +99,8 @@ export function DigitalSignatureDialog({ viewer, container, targets, onSign, onC
     setError("");
     setPlacing({ page, suggestion: targets.find(target => target.kind === "label")?.rect });
   };
-  const invalid = info && (info.expired ? `This certificate expired on ${day(info.validTo)}. It can't make a valid signature.`
-    : info.notYetValid ? `This certificate is valid from ${day(info.validFrom)}.` : "");
+  const invalid = info && (info.expired ? translateUi("This certificate expired on {v0}. It can't make a valid signature.", { v0: day(info.validTo) })
+    : info.notYetValid ? translateUi("This certificate is valid from {v0}.", { v0: day(info.validFrom) }) : "");
 
   if (placing && info) {
     return <StampPlacement viewer={viewer} container={container} pageNumber={placing.page} suggestion={placing.suggestion} signer={info.name}
@@ -107,61 +108,61 @@ export function DigitalSignatureDialog({ viewer, container, targets, onSign, onC
       onBack={() => { setPlacing(null); setError(""); }} onCancel={onClose} />;
   }
 
-  return <Modal title="Sign digitally" onClose={() => { if (!busy) onClose(); }}>
+  return <Modal title={translateUi("Sign digitally")} onClose={() => { if (!busy) onClose(); }}>
     <form className="digital-signature" onSubmit={event => { event.preventDefault(); if (file) void (info ? next() : read()); }}>
-      <p className="search-hint">Signs with your .p12 or .pfx certificate and adds a stamp with a QR code where you place it. The signed copy is saved as a new file.</p>
+      <p className="search-hint">{translateUi("Signs with your .p12 or .pfx certificate and adds a stamp with a QR code where you place it. The signed copy is saved as a new file.")}</p>
       {!file && <>
-        {!!saved?.length && <div className="saved-certificates" role="group" aria-label="Saved certificates">
-          <h3>Saved certificates</h3>
+        {!!saved?.length && <div className="saved-certificates" role="group" aria-label={translateUi("Saved certificates")}>
+          <h3>{translateUi("Saved certificates")}</h3>
           <ul>
             {saved.map(entry => <li key={entry.id} data-missing={entry.missing || missing === entry.id || undefined}>
               <button type="button" className="saved-certificate" disabled={busy} onClick={() => void openSaved(entry)}
-                title={entry.fileName} aria-label={`Use ${entry.name}, ${entry.fileName}`}>
+                title={entry.fileName} aria-label={translateUi("Use {v0}, {v1}", { v0: entry.name, v1: entry.fileName })}>
                 <Icon name="lock" size={15} />
                 <span className="saved-certificate-text">
                   <strong>{entry.name || entry.fileName}</strong>
                   <small>{entry.provider}</small>
-                  <small>{entry.missing || missing === entry.id ? <em>File not found: {entry.fileName}</em>
-                    : entry.expired ? <em>Expired {day(entry.validTo)}</em> : entry.validTo ? `Valid until ${day(entry.validTo)}` : entry.fileName}</small>
+                  <small>{entry.missing || missing === entry.id ? <em>{translateUi("File not found:")} {entry.fileName}</em>
+                    : entry.expired ? <em>{translateUi("Expired")} {day(entry.validTo)}</em> : entry.validTo ? translateUi("Valid until {v0}", { v0: day(entry.validTo) }) : entry.fileName}</small>
                 </span>
               </button>
               <button type="button" className="pill-btn" disabled={busy} onClick={() => void forgetSaved(entry)}
-                aria-label={`Forget ${entry.name || entry.fileName}`} title="Forget this certificate"><Icon name="trash" size={14} /></button>
+                aria-label={translateUi("Forget {v0}", { v0: entry.name || entry.fileName })} title={translateUi("Forget this certificate")}><Icon name="trash" size={14} /></button>
             </li>)}
           </ul>
         </div>}
         <button type="button" className="btn ghost digital-signature-choose" disabled={busy || !saved} onClick={() => void choose()}>
-          <Icon name="file" size={15} />{saved?.length ? "Choose another file…" : "Choose certificate"}</button>
+          <Icon name="file" size={15} />{saved?.length ? translateUi("Choose another file…") : translateUi("Choose certificate")}</button>
       </>}
       {file && <div className="digital-signature-file">
         <Icon name="file" size={16} /><span title={file.name}>{file.name}</span>
-        <button type="button" className="btn ghost" disabled={busy} onClick={() => { void signing.forget(); setFile(null); setInfo(null); setPassword(""); setError(""); }}>Change</button>
+        <button type="button" className="btn ghost" disabled={busy} onClick={() => { void signing.forget(); setFile(null); setInfo(null); setPassword(""); setError(""); }}>{translateUi("Change")}</button>
       </div>}
-      {file && <label className="signature-field">Password
+      {file && <label className="signature-field">{translateUi("Password")}
         <input type="password" autoFocus autoComplete="off" value={password} disabled={busy}
           onChange={event => { setPassword(event.target.value); setInfo(null); }} />
       </label>}
       {info && <dl className="info-list">
-        <div><dt>Signer</dt><dd>{info.name}</dd></div>
-        <div><dt>Issued by</dt><dd>{info.provider}</dd></div>
-        <div><dt>Valid until</dt><dd>{day(info.validTo)}</dd></div>
+        <div><dt>{translateUi("Signer")}</dt><dd>{info.name}</dd></div>
+        <div><dt>{translateUi("Issued by")}</dt><dd>{info.provider}</dd></div>
+        <div><dt>{translateUi("Valid until")}</dt><dd>{day(info.validTo)}</dd></div>
       </dl>}
       {info && !invalid && <>
         {!file?.saved && <label className="signature-remember"><input type="checkbox" checked={remember} disabled={busy} onChange={event => setRemember(event.target.checked)} />
-          <span>Remember this certificate<small>Keeps its location and details, never the password.</small></span></label>}
-        <label className="signature-field">Reason (optional)<input value={reason} maxLength={200} disabled={busy} onChange={event => setReason(event.target.value)} /></label>
-        <label className="signature-field">Location (optional)<input value={location} maxLength={200} disabled={busy} onChange={event => setLocation(event.target.value)} /></label>
-        {fields.length > 0 && <label className="signature-field">Stamp position<select value={targetId} disabled={busy} onChange={event => setTargetId(event.target.value)}>
-          {fields.map(target => <option key={target.id} value={target.id}>Signature field: {target.label}</option>)}
-          <option value={PLACE}>Choose a place on the page</option>
+          <span>{translateUi("Remember this certificate")}<small>{translateUi("Keeps its location and details, never the password.")}</small></span></label>}
+        <label className="signature-field">{translateUi("Reason (optional)")}<input value={reason} maxLength={200} disabled={busy} onChange={event => setReason(event.target.value)} /></label>
+        <label className="signature-field">{translateUi("Location (optional)")}<input value={location} maxLength={200} disabled={busy} onChange={event => setLocation(event.target.value)} /></label>
+        {fields.length > 0 && <label className="signature-field">{translateUi("Stamp position")}<select value={targetId} disabled={busy} onChange={event => setTargetId(event.target.value)}>
+          {fields.map(target => <option key={target.id} value={target.id}>{translateUi("Signature field:")} {target.label}</option>)}
+          <option value={PLACE}>{translateUi("Choose a place on the page")}</option>
         </select></label>}
       </>}
       {(error || invalid) && <p className="form-error" role="alert">{error || invalid}</p>}
       <div className="form-actions">
-        <button type="button" className="btn ghost" disabled={busy} onClick={onClose}>Cancel</button>
+        <button type="button" className="btn ghost" disabled={busy} onClick={onClose}>{translateUi("Cancel")}</button>
         {info ? <button type="submit" className="btn primary" disabled={busy || !!invalid}>
-          {targetId === PLACE || !fields.some(target => target.id === targetId) ? "Choose place" : busy ? "Signing..." : <><Icon name="check" size={15} />Sign and save</>}</button>
-          : file && <button type="submit" className="btn primary" disabled={busy}>{busy ? "Opening..." : "Open certificate"}</button>}
+          {targetId === PLACE || !fields.some(target => target.id === targetId) ? translateUi("Choose place") : busy ? translateUi("Signing...") : <><Icon name="check" size={15} />{translateUi("Sign and save")}</>}</button>
+          : file && <button type="submit" className="btn primary" disabled={busy}>{busy ? translateUi("Opening...") : translateUi("Open certificate")}</button>}
       </div>
     </form>
   </Modal>;

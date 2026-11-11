@@ -1,14 +1,15 @@
+import { translateUi } from "./i18n";
 export const MAX_PDF_BYTES = 300 * 1024 * 1024;
 // The viewer creates a page view and DOM element for every reported page, even with lazy rendering.
 export const MAX_PDF_PAGES = 10_000;
 
 export function checkPdfSize(size: number, limit = MAX_PDF_BYTES) {
-  if (size > limit) throw new Error("That PDF is larger than 300 MB.");
+  if (size > limit) throw new Error(translateUi("That PDF is larger than 300 MB."));
 }
 
 export function checkPageCount(count: number) {
-  if (!Number.isSafeInteger(count) || count < 1) throw new Error("The PDF has an invalid page count.");
-  if (count > MAX_PDF_PAGES) throw new Error("Folio can open PDFs with up to 10,000 pages.");
+  if (!Number.isSafeInteger(count) || count < 1) throw new Error(translateUi("The PDF has an invalid page count."));
+  if (count > MAX_PDF_PAGES) throw new Error(translateUi("Folio can open PDFs with up to 10,000 pages."));
 }
 
 export async function readPdfBlob(blob: Blob, signal: AbortSignal, limit = MAX_PDF_BYTES): Promise<Uint8Array> {
@@ -18,7 +19,7 @@ export async function readPdfBlob(blob: Blob, signal: AbortSignal, limit = MAX_P
     const reader = new FileReader();
     const abort = () => reader.abort();
     reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
-    reader.onerror = () => reject(new Error("The file may have been moved or deleted."));
+    reader.onerror = () => reject(new Error(translateUi("The file may have been moved or deleted.")));
     reader.onabort = () => reject(signal.reason);
     reader.onloadend = () => signal.removeEventListener("abort", abort);
     signal.addEventListener("abort", abort, { once: true });
@@ -41,9 +42,9 @@ export async function readPdfResponse(response: Response, signal: AbortSignal, l
   };
   try {
     signal.throwIfAborted();
-    if (!response.ok) throw new Error(`The server responded with ${response.status}.`);
+    if (!response.ok) throw new Error(translateUi("The server responded with {v0}.", { v0: response.status }));
     checkPdfSize(Number(response.headers.get("content-length")), limit);
-    if (!reader) throw new Error("The server sent an empty response.");
+    if (!reader) throw new Error(translateUi("The server sent an empty response."));
     // Content-Length may be missing or describe compressed data. Grow on actual bytes, keeping
     // one buffer so even a response split into tiny chunks has a bounded allocation.
     let data = new Uint8Array(0);
@@ -52,7 +53,7 @@ export async function readPdfResponse(response: Response, signal: AbortSignal, l
     alive();
     for (;;) {
       const { value, done } = await reader.read();
-      if (stalled) throw new Error("The download timed out.");
+      if (stalled) throw new Error(translateUi("The download timed out."));
       signal.throwIfAborted();
       alive();
       const nextSize = size + (value?.byteLength ?? 0);
@@ -66,7 +67,7 @@ export async function readPdfResponse(response: Response, signal: AbortSignal, l
       size = nextSize;
       if (!checkedHeader && (size >= 1024 || done)) {
         if (!new TextDecoder().decode(data.subarray(0, Math.min(1024, size))).includes("%PDF-")) {
-          throw new Error("That link isn't a PDF.");
+          throw new Error(translateUi("That link isn't a PDF."));
         }
         checkedHeader = true;
       }

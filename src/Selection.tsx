@@ -1,3 +1,4 @@
+import { translateKnownUi, translateUi } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import { keys } from "./platform";
@@ -99,30 +100,30 @@ export function SelectionPopover({ info, stageWidth, colors, current, onHighligh
     <div
       className="selection-popover"
       role="dialog"
-      aria-label="Selected text"
+      aria-label={translateUi("Selected text")}
       style={place(info, width, POPOVER_H, stageWidth)}
       // Keep the text selection alive while clicking buttons (but let the note field take focus).
       onMouseDown={(e) => { if (!(e.target as HTMLElement).closest("input")) e.preventDefault(); }}
     >
-      <div className="pop-row" role="toolbar" aria-label="Highlight">
+      <div className="pop-row" role="toolbar" aria-label={translateUi("Highlight")}>
         {colors.map((c) => (
           <button
             key={c.hex}
             className={`swatch-btn ${c.hex === current ? "on" : ""}`}
             style={{ "--swatch": c.hex } as React.CSSProperties}
-            title={`Highlight ${c.name.toLowerCase()}${c.hex === current ? " (H)" : ""}`}
-            aria-label={`Highlight ${c.name.toLowerCase()}`}
+            title={translateUi("Highlight {v0}{v1}", { v0: translateKnownUi(c.name).toLowerCase(), v1: c.hex === current ? " (H)" : "" })}
+            aria-label={translateUi("Highlight {v0}", { v0: translateKnownUi(c.name).toLowerCase() })}
             onClick={() => onHighlight(c.hex, note.trim())}
           />
         ))}
         <span className="divider" />
-        <button className="pop-btn" onClick={onAsk} title="Ask AI about this passage">
-          <Icon name="sparkle" size={15} /> Ask AI
+        <button className="pop-btn" onClick={onAsk} title={translateUi("Ask AI about this passage")}>
+          <Icon name="sparkle" size={15} /> {translateUi("Ask AI")}
         </button>
         <button
           className="pop-btn icon-only"
-          title={copy === "done" ? "Copied" : copy === "failed" ? "Copy failed" : "Copy"}
-          aria-label="Copy"
+          title={copy === "done" ? translateUi("Copied") : copy === "failed" ? translateUi("Copy failed") : translateUi("Copy")}
+          aria-label={translateUi("Copy")}
           onClick={async () => {
             const ok = await copyText(info.text);
             setCopy(ok ? "done" : "failed");
@@ -135,8 +136,8 @@ export function SelectionPopover({ info, stageWidth, colors, current, onHighligh
       <input
         className="pop-note"
         value={note}
-        placeholder="Add a note… (Enter to highlight)"
-        aria-label="Note for this highlight"
+        placeholder={keys(translateUi("Add a note… (Enter to highlight)"))}
+        aria-label={translateUi("Note for this highlight")}
         onFocus={onPin}
         onChange={(e) => setNote(e.target.value)}
         onKeyDown={(e) => {
@@ -165,27 +166,27 @@ export function HighlightMenu({ rect, stageWidth, colors, current, hasNote, onRe
   const width = 30 * colors.length + 300;
   const anchor = { x: (rect.left + rect.right) / 2, top: rect.top, bottom: rect.bottom };
   return (
-    <div className="selection-popover" role="toolbar" aria-label="Highlight" style={place(anchor, width, 44, stageWidth)}>
+    <div className="selection-popover" role="toolbar" aria-label={translateUi("Highlight")} style={place(anchor, width, 44, stageWidth)}>
       <div className="pop-row">
         {colors.map((c) => (
           <button
             key={c.hex}
             className={`swatch-btn ${c.hex.toLowerCase() === current.toLowerCase() ? "on" : ""}`}
             style={{ "--swatch": c.hex } as React.CSSProperties}
-            title={`Change to ${c.name.toLowerCase()}`}
-            aria-label={`Change to ${c.name.toLowerCase()}`}
+            title={translateUi("Change to {v0}", { v0: translateKnownUi(c.name).toLowerCase() })}
+            aria-label={translateUi("Change to {v0}", { v0: translateKnownUi(c.name).toLowerCase() })}
             onClick={() => onRecolor(c.hex)}
           />
         ))}
         <span className="divider" />
-        <button className="pop-btn" onClick={onNote} title={hasNote ? "Edit note" : "Add a note"}>
-          <Icon name="note" size={15} /> {hasNote ? "Edit note" : "Note"}
+        <button className="pop-btn" onClick={onNote} title={hasNote ? translateUi("Edit note") : translateUi("Add a note")}>
+          <Icon name="note" size={15} /> {hasNote ? translateUi("Edit note") : translateUi("Note")}
         </button>
-        <button className="pop-btn" onClick={onAsk} title="Ask AI about this highlight">
-          <Icon name="sparkle" size={15} /> Ask AI
+        <button className="pop-btn" onClick={onAsk} title={translateUi("Ask AI about this highlight")}>
+          <Icon name="sparkle" size={15} /> {translateUi("Ask AI")}
         </button>
-        <button className="pop-btn danger" onClick={onRemove} title="Remove highlight (Delete)">
-          <Icon name="trash" size={15} /> Remove
+        <button className="pop-btn danger" onClick={onRemove} title={keys(translateUi("Remove highlight (Delete)"))}>
+          <Icon name="trash" size={15} /> {translateUi("Remove")}
         </button>
       </div>
     </div>
@@ -215,12 +216,12 @@ export function NoteBox({ anchor, stageWidth, quote, initial, onSave, onClose }:
     onClose();
   };
   return (
-    <div className="note-box" role="dialog" aria-label="Note" style={place(anchor, 320, 170, stageWidth)}>
+    <div className="note-box" role="dialog" aria-label={translateUi("Note")} style={place(anchor, 320, 170, stageWidth)}>
       {quote && <blockquote>{quote.length > 140 ? quote.slice(0, 140) + "…" : quote}</blockquote>}
       <textarea
         ref={ref}
         value={value}
-        placeholder="Add a note…"
+        placeholder={translateUi("Add a note…")}
         rows={3}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
@@ -229,9 +230,9 @@ export function NoteBox({ anchor, stageWidth, quote, initial, onSave, onClose }:
         }}
       />
       <div className="note-actions">
-        <span className="hint">{keys("Ctrl+Enter to save")}</span>
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
-        <button className="btn primary" onClick={save}>Save</button>
+        <span className="hint">{keys(translateUi("Ctrl+Enter to save"))}</span>
+        <button className="btn ghost" onClick={onClose}>{translateUi("Cancel")}</button>
+        <button className="btn primary" onClick={save}>{translateUi("Save")}</button>
       </div>
     </div>
   );

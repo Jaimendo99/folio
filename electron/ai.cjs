@@ -1,3 +1,4 @@
+const { t } = require("./i18n.cjs");
 // Ask-AI providers, run in the main process so credentials never reach the page.
 //
 // - ChatGPT: OpenAI's "Sign in with ChatGPT" for open-source apps (OAuth 2.0 + PKCE with a loopback
@@ -98,14 +99,14 @@ let openIdConfig = null;
 async function getOpenIdConfig() {
   if (openIdConfig) return openIdConfig;
   const response = await net.fetch(`${AUTH_ISSUER}/.well-known/openid-configuration`, { redirect: "error" });
-  if (!response.ok) throw new Error("Couldn't reach OpenAI's sign-in service.");
+  if (!response.ok) throw new Error(t("Couldn't reach OpenAI's sign-in service."));
   const config = await response.json();
   const endpoints = [config.jwks_uri];
   if (config.revocation_endpoint != null) endpoints.push(config.revocation_endpoint);
   for (const value of endpoints) {
     const url = new URL(value);
     if (url.protocol !== "https:" || url.origin !== AUTH_ISSUER || url.username || url.password) {
-      throw new Error("Unexpected sign-in configuration.");
+      throw new Error(t("Unexpected sign-in configuration."));
     }
   }
   openIdConfig = config;
@@ -115,27 +116,27 @@ async function getOpenIdConfig() {
 /** Verifies the ID token's RS256 signature and claims; returns its payload. */
 async function verifyIdToken(idToken, clientId, nonce) {
   const parts = String(idToken).split(".");
-  if (parts.length !== 3) throw new Error("Unexpected sign-in token.");
+  if (parts.length !== 3) throw new Error(t("Unexpected sign-in token."));
   const [h, p, sig] = parts;
   const header = JSON.parse(Buffer.from(h, "base64url").toString());
   const payload = JSON.parse(Buffer.from(p, "base64url").toString());
   const config = await getOpenIdConfig();
   const jwks = await (await net.fetch(config.jwks_uri, { redirect: "error" })).json();
   const jwk = jwks.keys?.find((k) => k.kid === header.kid);
-  if (!jwk || header.alg !== "RS256") throw new Error("Unexpected sign-in token.");
+  if (!jwk || header.alg !== "RS256") throw new Error(t("Unexpected sign-in token."));
   const valid = crypto.verify("RSA-SHA256", Buffer.from(`${h}.${p}`), crypto.createPublicKey({ key: jwk, format: "jwk" }), Buffer.from(sig, "base64url"));
   const audience = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
   const authorizedParty = audience.length > 1 ? payload.azp === clientId : payload.azp === undefined || payload.azp === clientId;
   if (!valid || payload.iss !== AUTH_ISSUER || !audience.includes(clientId) || !authorizedParty || payload.nonce !== nonce
     || !Number.isFinite(payload.exp) || payload.exp * 1000 < Date.now()) {
-    throw new Error("The sign-in response couldn't be verified. Please try again.");
+    throw new Error(t("The sign-in response couldn't be verified. Please try again."));
   }
   return payload;
 }
 
-const CALLBACK_PAGE = `<!doctype html><meta charset="utf-8"><title>Folio</title>
+const callbackPage = () => `<!doctype html><meta charset="utf-8"><title>Folio</title>
 <body style="font:16px system-ui;display:grid;place-items:center;height:90vh;color:#222">
-<p>You can close this tab and return to Folio.</p></body>`;
+<p>${t("You can close this tab and return to Folio.")}</p></body>`;
 
 let signInInProgress = null;
 // The page of the sign-in that is waiting for the browser, kept so it can be opened again.
@@ -164,8 +165,8 @@ async function signInChatGPT() {
           // Only a response carrying this attempt's state counts; anything else is ignored, so stray
           // requests from other local software or web pages can't end the sign-in.
           if (url.pathname !== "/auth/callback" || url.searchParams.get("state") !== state) { res.writeHead(404).end(); return; }
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }).end(CALLBACK_PAGE);
-          if (url.searchParams.get("error")) return reject(new Error(url.searchParams.get("error") === "access_denied" ? "Sign-in was cancelled." : "ChatGPT sign-in failed."));
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }).end(callbackPage());
+          if (url.searchParams.get("error")) return reject(new Error(url.searchParams.get("error") === "access_denied" ? t("Sign-in was cancelled.") : t("ChatGPT sign-in failed.")));
           resolve(url.searchParams);
         } catch {
           // A malformed request line shouldn't be able to take the app down.
@@ -182,14 +183,14 @@ async function signInChatGPT() {
         server.on("error", (error) => {
           // Port 1455 is the documented default; any free loopback port also works.
           if (!fellBack && error.code === "EADDRINUSE") { fellBack = true; server.listen(0, "127.0.0.1", resolve); }
-          else reject(new Error("Couldn't start sign-in."));
+          else reject(new Error(t("Couldn't start sign-in.")));
         });
         server.listen(1455, "127.0.0.1", resolve);
-        listenTimer = setTimeout(() => reject(new Error("Couldn't start sign-in.")), 5000);
+        listenTimer = setTimeout(() => reject(new Error(t("Couldn't start sign-in."))), 5000);
       }).finally(() => clearTimeout(listenTimer));
       const redirectUri = `http://127.0.0.1:${server.address().port}/auth/callback`;
       const timeout = new Promise((_, reject) => {
-        waitTimer = setTimeout(() => reject(new Error("Sign-in timed out. Please try again.")), 5 * 60_000);
+        waitTimer = setTimeout(() => reject(new Error(t("Sign-in timed out. Please try again."))), 5 * 60_000);
       });
       timeout.catch(() => {});
 
@@ -212,18 +213,18 @@ async function signInChatGPT() {
       const query = await Promise.race([callback, timeout]);
       signInPage = null; // answered: the page has done its job
       const clientId = host.clientId || query.get("client_id");
-      if (!clientId) throw new Error("ChatGPT didn't finish registering Folio. Please try again.");
+      if (!clientId) throw new Error(t("ChatGPT didn't finish registering Folio. Please try again."));
       // Keep the issued client ID for every later sign-in on this computer, even if the rest fails.
       if (!host.clientId) saveHost({ ...host, clientId });
       const exchange = await postForm(TOKEN_URL, {
         grant_type: "authorization_code", client_id: clientId, code: query.get("code"), code_verifier: verifier, redirect_uri: redirectUri, resource: API,
       });
-      if (!exchange.ok || !exchange.json?.access_token) throw new Error("ChatGPT sign-in failed. Please try again.");
+      if (!exchange.ok || !exchange.json?.access_token) throw new Error(t("ChatGPT sign-in failed. Please try again."));
       const tokens = exchange.json;
       const claims = await verifyIdToken(tokens.id_token, clientId, nonce);
       const scopes = String(tokens.scope || query.get("scope") || "").split(/[\s+]+/);
       if (!scopes.includes("chatgpt.tokens.use.direct")) {
-        throw new Error("ChatGPT plan usage wasn't granted. Sign in again and allow Folio to use your plan.");
+        throw new Error(t("ChatGPT plan usage wasn't granted. Sign in again and allow Folio to use your plan."));
       }
       await saveSession({
         accessToken: tokens.access_token, refreshToken: tokens.refresh_token, idToken: tokens.id_token,
@@ -241,7 +242,7 @@ async function signInChatGPT() {
 let refreshing = null;
 async function accessToken(force = false) {
   const current = await loadSession();
-  if (!current) throw Object.assign(new Error("Continue with ChatGPT to use your plan in Folio."), { code: "signed_out" });
+  if (!current) throw Object.assign(new Error(t("Continue with ChatGPT to use your plan in Folio.")), { code: "signed_out" });
   if (!force && current.expiresAt - 60_000 > Date.now()) return current.accessToken;
   // Refresh tokens rotate: never run two refreshes at once.
   refreshing ??= (async () => {
@@ -251,14 +252,14 @@ async function accessToken(force = false) {
       const code = result.json?.error;
       if (REFRESH_FAILURES.has(code)) {
         await saveSession(null);
-        throw Object.assign(new Error("Your ChatGPT sign-in has ended. Continue with ChatGPT to reconnect."), { code: "signed_out" });
+        throw Object.assign(new Error(t("Your ChatGPT sign-in has ended. Continue with ChatGPT to reconnect.")), { code: "signed_out" });
       }
-      throw new Error("Couldn't refresh your ChatGPT sign-in. Check your connection and try again.");
+      throw new Error(t("Couldn't refresh your ChatGPT sign-in. Check your connection and try again."));
     }
     const t = result.json;
     // Signed out while this refresh was in flight: don't bring the session back.
     if (!session || session.refreshToken !== current.refreshToken) {
-      throw Object.assign(new Error("Continue with ChatGPT to use your plan in Folio."), { code: "signed_out" });
+      throw Object.assign(new Error(t("Continue with ChatGPT to use your plan in Folio.")), { code: "signed_out" });
     }
     await saveSession({ ...current, accessToken: t.access_token, refreshToken: t.refresh_token ?? current.refreshToken,
       idToken: t.id_token ?? current.idToken, expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000 });
@@ -294,7 +295,7 @@ async function chatgptStatus() {
 async function chatgptModels() {
   const token = await accessToken();
   const response = await net.fetch(`${API}/models`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!response.ok) throw new Error(`Couldn't load ChatGPT models (${response.status}).`);
+  if (!response.ok) throw new Error(t("Couldn't load ChatGPT models ({v0}).", { v0: response.status }));
   const json = await response.json();
   const list = Array.isArray(json.models) ? json.models : Array.isArray(json.data) ? json.data : [];
   return list.filter((m) => m.visibility === undefined || m.visibility === "list")
@@ -337,24 +338,24 @@ async function askChatGPT({ model, document, messages }, emit, signal) {
       else if (event.type === "response.failed" || event.type === "error") {
         throw usageError(event.response?.error?.code ?? event.error?.code ?? event.code ?? "", 0);
       } else if (event.type === "response.incomplete") {
-        throw new Error("The answer was cut short. Try a shorter question or a smaller selection.");
+        throw new Error(t("The answer was cut short. Try a shorter question or a smaller selection."));
       }
     }
   }
-  if (!completed) throw new Error("The connection to ChatGPT ended early. Please try again.");
+  if (!completed) throw new Error(t("The connection to ChatGPT ended early. Please try again."));
 }
 
 function usageError(code, status) {
   if (code === "subscription_sharing_usage_limit_exceeded" || status === 429) {
-    return Object.assign(new Error("You've reached a ChatGPT usage limit."), { code: "usage_limit", link: USAGE_URL });
+    return Object.assign(new Error(t("You've reached a ChatGPT usage limit.")), { code: "usage_limit", link: USAGE_URL });
   }
   if (code === "subscription_sharing_usage_unavailable" || status === 503) {
-    return new Error("ChatGPT is temporarily unavailable. Please try again in a moment.");
+    return new Error(t("ChatGPT is temporarily unavailable. Please try again in a moment."));
   }
   if (code === "subscription_sharing_invalid_user" || status === 401) {
-    return Object.assign(new Error("ChatGPT couldn't confirm your plan. Continue with ChatGPT to reconnect."), { code: "signed_out" });
+    return Object.assign(new Error(t("ChatGPT couldn't confirm your plan. Continue with ChatGPT to reconnect.")), { code: "signed_out" });
   }
-  return new Error(`ChatGPT couldn't answer${status ? ` (${status})` : ""}. Please try again.`);
+  return new Error(t("ChatGPT couldn't answer{v0}. Please try again.", { v0: status ? ` (${status})` : "" }));
 }
 
 // ── Claude Code ────────────────────────────────────────────────────────────────────────────
@@ -432,7 +433,7 @@ function cleanStaleClaudeFolders() {
 
 async function askClaude({ model, document, messages }, emit, signal) {
   const exe = await findClaude();
-  if (!exe) throw new Error("Claude Code isn't installed.");
+  if (!exe) throw new Error(t("Claude Code isn't installed."));
   if (signal.aborted) return;
   const prompt = claudePrompt(document, messages);
   // Claude reads and answers from a private working folder with settings, MCP servers, slash commands and tools disabled.
@@ -490,15 +491,15 @@ async function askClaude({ model, document, messages }, emit, signal) {
       signal.removeEventListener("abort", abort);
       cleanup();
       if (signal.aborted) return resolve();
-      if (timedOut) return reject(new Error("Claude took too long to answer. Please try again."));
+      if (timedOut) return reject(new Error(t("Claude took too long to answer. Please try again.")));
       if (result && !result.is_error) {
         if (!streamed && result.result) emit(result.result);
         return resolve();
       }
       const message = String(result?.result || stderr || "");
-      if (/log ?in|logged in|authenticat/i.test(message)) return reject(new Error("Claude Code isn't signed in. Open a terminal, run `claude`, and sign in with your Claude account."));
-      if (/limit|usage/i.test(message)) return reject(Object.assign(new Error("You've reached your Claude usage limit. " + message.split("\n")[0]), { code: "usage_limit" }));
-      reject(new Error(message.split("\n")[0] || "Claude Code couldn't answer."));
+      if (/log ?in|logged in|authenticat/i.test(message)) return reject(new Error(t("Claude Code isn't signed in. Open a terminal, run `claude`, and sign in with your Claude account.")));
+      if (/limit|usage/i.test(message)) return reject(Object.assign(new Error(t("You've reached your Claude usage limit. {detail}", { detail: message.split("\n")[0] })), { code: "usage_limit" }));
+      reject(new Error(message.split("\n")[0] || t("Claude Code couldn't answer.")));
     });
     child.stdin.end(prompt.input);
   });
@@ -534,7 +535,7 @@ function register(handle, send) {
   });
   handle("folio:ai-router-models", async () => {
     try { return { ok: true, models: await openRouter.models() }; }
-    catch { return { ok: false, error: "Couldn't load OpenRouter models. Check your key and connection, or enter a model ID." }; }
+    catch { return { ok: false, error: t("Couldn't load OpenRouter models. Check your key and connection, or enter a model ID.") }; }
   });
   handle("folio:ai-chatgpt-signin", async () => {
     try { return { ok: true, status: await signInChatGPT() }; } catch (e) { return { ok: false, error: e.message }; }
@@ -553,7 +554,7 @@ function register(handle, send) {
   });
   handle("folio:ai-ask", (_event, req) => {
     if (!validRequest(req) || active.has(req.id)) throw new Error("Invalid request");
-    if (active.size >= MAX_ACTIVE) throw new Error("Another answer is still in progress.");
+    if (active.size >= MAX_ACTIVE) throw new Error(t("Another answer is still in progress."));
     const controller = new AbortController();
     active.set(req.id, controller);
     const emit = (text) => send("folio:ai-event", { id: req.id, type: "delta", text });
@@ -564,7 +565,7 @@ function register(handle, send) {
     Promise.resolve(ask({ model: req.model, document: { name, text, truncated }, messages }, emit, controller.signal))
       .then(() => send("folio:ai-event", { id: req.id, type: "done" }))
       .catch((e) => send("folio:ai-event", controller.signal.aborted ? { id: req.id, type: "done" }
-        : { id: req.id, type: "error", message: e.message || "Something went wrong.", code: e.code ?? "", link: e.link ?? "" }))
+        : { id: req.id, type: "error", message: e.message || t("Something went wrong."), code: e.code ?? "", link: e.link ?? "" }))
       .finally(() => active.delete(req.id));
     return true;
   });

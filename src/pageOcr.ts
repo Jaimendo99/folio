@@ -1,6 +1,7 @@
+import { translateUi } from "./i18n";
 import { AnnotationMode, OPS, type PDFPageProxy } from "pdfjs-dist";
 import type { Worker as OcrWorker } from "tesseract.js";
-import { SCAN_LANGUAGES, type ScanLanguage } from "./scanLanguage";
+import { SCAN_LANGUAGES, scanLanguageName, type ScanLanguage } from "./scanLanguage";
 import { installedScanLanguages, OCR_CACHE_PATH } from "./scanLanguagePacks";
 import type { EventBus, PDFPageView, PDFViewer } from "./viewer";
 
@@ -29,7 +30,7 @@ async function startWorker(languages: ScanLanguage[]) {
   if (languages.some(code => code !== "eng")) {
     const installed = await installedScanLanguages();
     const missing = SCAN_LANGUAGES.find(({ id }) => languages.includes(id) && !installed.has(id));
-    if (missing) throw new MissingScanPack(`Download the ${missing.name} pack in Settings to read this scan.`);
+    if (missing) throw new MissingScanPack(translateUi("Download the {v0} pack in Settings to read this scan.", { v0: scanLanguageName(missing.id) }));
   }
   const { createWorker, OEM, PSM } = await import("tesseract.js");
   const base = `${import.meta.env.BASE_URL}ocr`;
@@ -65,7 +66,7 @@ async function readWords(page: PDFPageProxy, worker: OcrWorker, signal: AbortSig
     // Encode here so we can check ownership before Tesseract posts its recognition job.
     const png = await new Promise<Blob>((resolve, reject) => canvas.toBlob(blob => {
       if (blob) resolve(blob);
-      else reject(new Error("Couldn't prepare the scan image."));
+      else reject(new Error(translateUi("Couldn't prepare the scan image.")));
     }));
     signal.throwIfAborted();
     const bytes = new Uint8Array(await png.arrayBuffer());
@@ -165,11 +166,11 @@ export function recognizeScannedPages(bus: EventBus, viewer: PDFViewer, language
     const view: PDFPageView = viewer.getPageView(n - 1);
     const layer = view.textLayer?.div;
     if (layer?.isConnected && !layer.hidden && layer.textContent.trim()) onStatus(null);
-    else if (notices.get(n) === "noWords") onStatus(`No readable text found on page ${n}.`);
-    else if (notices.has(n)) onStatus(missingPackMessage ?? `Text unavailable on page ${n}.`);
-    else if (active === n && recognizing) onStatus(`Recognizing text on page ${n}…`);
+    else if (notices.get(n) === "noWords") onStatus(translateUi("No readable text found on page {v0}.", { v0: n }));
+    else if (notices.has(n)) onStatus(missingPackMessage ?? translateUi("Text unavailable on page {v0}.", { v0: n }));
+    else if (active === n && recognizing) onStatus(translateUi("Recognizing text on page {v0}…", { v0: n }));
     else if (pending.has(n) || active === n || !layer?.isConnected || layer.hidden || !layer.querySelector(".endOfContent")) {
-      onStatus(`Preparing text on page ${n}…`);
+      onStatus(translateUi("Preparing text on page {v0}…", { v0: n }));
     } else onStatus(null);
   }
 

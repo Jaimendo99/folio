@@ -1,3 +1,4 @@
+import { t, translateUi } from "./i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import { keys } from "./platform";
@@ -61,18 +62,18 @@ export function NotesPanel({ state, onExport, persisted, onReveal, onNote, onRem
   return (
     <div className="notes-panel">
       <div className="notes-head">
-        <span>{highlights.length ? `${highlights.length} highlight${highlights.length === 1 ? "" : "s"}` : "Notes"}</span>
-        <MoreMenu label="Export" items={[
-          { kind: "action", icon: "copy", label: "Copy Markdown", disabled: !state.marks.length && !docNote.value.trim() && !state.bookmarkedPages?.length,
+        <span>{highlights.length ? translateUi("{v0} highlight{v1}", { v0: highlights.length, v1: highlights.length === 1 ? "" : "s" }) : translateUi("Notes")}</span>
+        <MoreMenu label={translateUi("Export")} items={[
+          { kind: "action", icon: "copy", label: translateUi("Copy Markdown"), disabled: !state.marks.length && !docNote.value.trim() && !state.bookmarkedPages?.length,
             onSelect: () => onExport("markdown") },
-          { kind: "action", icon: "download", label: "Save JSON…", disabled: state.bookmarkedPages === null, onSelect: () => onExport("json") },
+          { kind: "action", icon: "download", label: translateUi("Save JSON…"), disabled: state.bookmarkedPages === null, onSelect: () => onExport("json") },
         ]} />
       </div>
 
       <GrowingTextarea
         className="doc-note"
-        placeholder="Notes about this document…"
-        aria-label="Notes about this document"
+        placeholder={translateUi("Notes about this document…")}
+        aria-label={translateUi("Notes about this document")}
         rows={3}
         {...docNote}
       />
@@ -80,7 +81,7 @@ export function NotesPanel({ state, onExport, persisted, onReveal, onNote, onRem
       {highlights.length === 0 ? (
         <div className="notes-empty">
           <Icon name="highlight" size={22} />
-          <p>Select text and click a color to highlight it. Highlights and their notes show up here.</p>
+          <p>{translateUi("Select text and click a color to highlight it. Highlights and their notes show up here.")}</p>
         </div>
       ) : (
         <ul className="mark-list">
@@ -89,10 +90,10 @@ export function NotesPanel({ state, onExport, persisted, onReveal, onNote, onRem
           ))}
         </ul>
       )}
-      {other > 0 && <p className="notes-foot">Plus {other} drawing{other === 1 ? "" : "s"} on the pages.</p>}
+      {other > 0 && <p className="notes-foot">{translateUi(other === 1 ? "Plus {v0} drawing on the pages." : "Plus {v0} drawings on the pages.", { v0: other })}</p>}
       <p className="notes-foot">
-        {keys(persisted ? "Saved automatically on this computer. Ctrl+S saves a PDF copy that includes them."
-          : "Password-protected documents aren't saved in Folio. Use Ctrl+S to keep a copy with your highlights.")}
+        {keys(persisted ? translateUi("Saved automatically on this computer. Ctrl+S saves a PDF copy that includes them.")
+          : translateUi("Password-protected documents aren't saved in Folio. Use Ctrl+S to keep a copy with your highlights."))}
       </p>
     </div>
   );
@@ -108,20 +109,20 @@ function MarkCard({ mark, onReveal, onNote, onRemove, onAsk }: {
   const note = useDebouncedField(mark.note, (v) => onNote(mark.id, v.trim()));
   return (
     <li className="mark-card" style={{ "--mark": mark.color } as React.CSSProperties}>
-      <button className="mark-quote" onClick={() => onReveal(mark.id)} title="Show on page">
+      <button className="mark-quote" onClick={() => onReveal(mark.id)} title={translateUi("Show on page")}>
         <span className="mark-page">p. {mark.page + 1}</span>
-        {mark.text || (mark.type === "freetext" ? "Text box" : "Highlight")}
+        {mark.text || (mark.type === "freetext" ? translateUi("Text box") : t("highlightNoun"))}
       </button>
       {mark.type === "highlight" && (
-        <GrowingTextarea className="mark-note" placeholder="Add a note…" aria-label="Note" rows={1} {...note} />
+        <GrowingTextarea className="mark-note" placeholder={translateUi("Add a note…")} aria-label={translateUi("Note")} rows={1} {...note} />
       )}
       <div className="mark-actions">
         {mark.type === "highlight" && (
-          <button className="pill-btn" onClick={() => onAsk(mark)} title="Ask AI about this highlight" aria-label="Ask AI about this highlight">
+          <button className="pill-btn" onClick={() => onAsk(mark)} title={translateUi("Ask AI about this highlight")} aria-label={translateUi("Ask AI about this highlight")}>
             <Icon name="sparkle" size={14} />
           </button>
         )}
-        <button className="pill-btn" onClick={() => onRemove(mark.id)} title="Delete" aria-label="Delete highlight">
+        <button className="pill-btn" onClick={() => onRemove(mark.id)} title={translateUi("Delete")} aria-label={translateUi("Delete highlight")}>
           <Icon name="trash" size={14} />
         </button>
       </div>

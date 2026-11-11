@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "./pdf";
 import type { EventBus, PDFFindController } from "./viewer";
@@ -78,15 +79,15 @@ export function SearchResults({ pdf, controller, bus, onSelect }: {
     };
   }, [pdf, controller, bus]);
 
-  return <aside className="search-results" aria-label="Search results">
-    <h3>Matching pages <span>{pageCount}</span></h3>
-    {results.length === 0 && <p className="search-hint">{keys("Search above to see matching pages. Enter and Shift+Enter navigate individual matches.")}</p>}
+  return <aside className="search-results" aria-label={translateUi("Search results")}>
+    <h3>{translateUi("Matching pages")} <span>{pageCount}</span></h3>
+    {results.length === 0 && <p className="search-hint">{keys(translateUi("Search above to see matching pages. Enter and Shift+Enter navigate individual matches."))}</p>}
     <div className="search-result-list">
-      {results.map(result => <button key={result.page} aria-label={"Go to page " + result.page + ", " + result.count + " matches"} onClick={() => onSelect(result.page)}>
-        <strong>Page {result.page} <span>{result.count} {result.count === 1 ? "match" : "matches"}</span></strong>
+      {results.map(result => <button key={result.page} aria-label={translateUi(result.count === 1 ? "Go to page {v0}, {v1} match" : "Go to page {v0}, {v1} matches", { v0: result.page, v1: result.count })} onClick={() => onSelect(result.page)}>
+        <strong>{translateUi("Page")} {result.page} <span>{result.count} {result.count === 1 ? translateUi("match") : translateUi("matches")}</span></strong>
         <span>{result.before}<mark>{result.match}</mark>{result.after}</span>
       </button>)}
     </div>
-    {pageCount > 100 && <p className="search-hint">Showing the first 100 matching pages. Use Enter to reach every match.</p>}
+    {pageCount > 100 && <p className="search-hint">{keys(translateUi("Showing the first 100 matching pages. Use Enter to reach every match."))}</p>}
   </aside>;
 }

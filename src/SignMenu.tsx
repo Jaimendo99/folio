@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 
@@ -23,18 +24,18 @@ export function SignMenu({ onHandwritten, onDigital }: { onHandwritten: () => vo
 
   const pick = (action: () => void) => { setOpen(false); action(); };
   return <div className="more sign-menu" ref={ref}>
-    <button className={open ? "on" : ""} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} aria-label="Sign" title="Add a signature">
-      <Icon name="signature" size={16} /><span>Sign</span><Icon name="chevronDown" size={13} />
+    <button className={open ? "on" : ""} onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} aria-label={translateUi("Sign")} title={translateUi("Add a signature")}>
+      <Icon name="signature" size={16} /><span>{translateUi("Sign")}</span><Icon name="chevronDown" size={13} />
     </button>
-    {open && <div className="menu dropdown" role="menu" aria-label="Sign" onKeyDown={event => {
+    {open && <div className="menu dropdown" role="menu" aria-label={translateUi("Sign")} onKeyDown={event => {
       if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
       event.preventDefault();
       const items = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')];
       const index = items.indexOf(document.activeElement as HTMLElement);
       items[(index + (event.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
     }}>
-      <button role="menuitem" onClick={() => pick(onHandwritten)}><Icon name="signature" size={15} /><span className="menu-label">Handwritten signature</span></button>
-      <button role="menuitem" onClick={() => pick(onDigital)}><Icon name="lock" size={15} /><span className="menu-label">Digital signature (certificate)</span></button>
+      <button role="menuitem" onClick={() => pick(onHandwritten)}><Icon name="signature" size={15} /><span className="menu-label">{translateUi("Handwritten signature")}</span></button>
+      <button role="menuitem" onClick={() => pick(onDigital)}><Icon name="lock" size={15} /><span className="menu-label">{translateUi("Digital signature (certificate)")}</span></button>
     </div>}
   </div>;
 }

@@ -1,6 +1,6 @@
 // Folio desktop shell: one window, PDFs (and Word documents, converted) opened from Explorer / "Open with",
 // files served over app://.
-const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, screen, session } = require("electron");
+const { app, BrowserWindow, protocol, net, ipcMain, dialog, shell, screen, session, Menu } = require("electron");
 const crypto = require("node:crypto");
 const i18n = require("./i18n.cjs");
 const t = i18n.t;
@@ -101,7 +101,7 @@ async function sendFile(file) {
     const data = await readRegular(await fs.promises.realpath(file));
     if (!target.isDestroyed()) target.webContents.send("folio:open-file", { name: path.basename(file), data });
   } catch (err) {
-    dialog.showErrorBox(t("openFile"), `${file}\n\n${err.userMessage ?? err.message}`);
+    dialog.showErrorBox(t("openFile"), `${file}\n\n${i18n.translateKnown(err.userMessage ?? err.message)}`);
   }
 }
 
@@ -116,7 +116,7 @@ async function sendWordFile(file, target) {
     send("folio:open-file", { ...await openWord(file, (msg) => logConvert(`${file}: ${msg}`)), token });
   } catch (error) {
     logConvert(`${file}: ${error?.stack || error}`);
-    send("folio:open-failed", { token, message: `Couldn't convert “${original}” to PDF. ${error?.userMessage ?? ""}`.trim() });
+    send("folio:open-failed", { token, message: t("Couldn't convert “{name}” to PDF. {detail}", { name: original, detail: i18n.translateKnown(error?.userMessage ?? "") }).trim() });
   }
 }
 
@@ -378,6 +378,27 @@ function createWindow() {
   win.on("closed", () => { clearTimeout(windowTimer); win = null; rendererReady = false; });
 }
 
+// Electron's default menu follows the OS locale, so rebuild it when Folio's language changes.
+function updateNativeMenu() {
+  const item = (role, label) => ({ role, label: t(label) });
+  const edit = { label: t("Edit"), submenu: [item("undo", "Undo"), item("redo", "Redo"), { type: "separator" },
+    item("cut", "Cut"), item("copy", "Copy"), item("paste", "Paste"),
+    ...(IS_MAC ? [item("pasteAndMatchStyle", "Paste and Match Style")] : []),
+    { type: "separator" }, item("selectAll", "Select All")] };
+  const view = { label: t("View"), submenu: [item("reload", "Reload"), item("forceReload", "Force Reload"),
+    item("toggleDevTools", "Toggle Developer Tools"), { type: "separator" }, item("resetZoom", "Actual Size"),
+    item("zoomIn", "Zoom In"), item("zoomOut", "Zoom Out"), { type: "separator" }, item("togglefullscreen", "Toggle Full Screen")] };
+  const windowMenu = { label: t("Window"), submenu: [item("minimize", "Minimize"), item("zoom", "Zoom"),
+    ...(IS_MAC ? [{ type: "separator" }, item("front", "Bring All to Front")] : [item("close", "Close Window")])] };
+  const appMenu = { label: "Folio", submenu: [item("about", "About Folio"), { type: "separator" },
+    { role: "services", label: t("Services"), submenu: [] }, { type: "separator" }, item("hide", "Hide Folio"),
+    item("hideOthers", "Hide Others"), item("unhide", "Show All"), { type: "separator" }, item("quit", "Quit Folio")] };
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    ...(IS_MAC ? [appMenu] : []), { label: t("File"), submenu: [item("close", "Close Window")] },
+    edit, view, windowMenu, { role: "help", label: t("Help"), submenu: [] },
+  ]));
+}
+
 const MAX_URL_PDF_BYTES = MAX_DOCUMENT_BYTES;
 
 // Shown in dialogs: long enough to see where a link goes, short enough that the dialog stays readable.
@@ -460,7 +481,7 @@ async function downloadPdf(url, approvedLocal, signal) {
     let timer;
     const alive = () => {
       clearTimeout(timer);
-      if (!done) timer = setTimeout(() => finish({ error: "The download timed out." }), 60_000);
+      if (!done) timer = setTimeout(() => finish({ error: t("The download timed out.") }), 60_000);
     };
     alive();
     request.on("redirect", alive);
@@ -471,23 +492,23 @@ async function downloadPdf(url, approvedLocal, signal) {
     // Track redirects ourselves: the final address usually carries the real file name.
     request.on("redirect", (_status, _method, redirectUrl) => {
       const next = new URL(redirectUrl, url);
-      if (++hops > 10) return finish({ error: "That link redirects too many times." });
-      if (next.protocol !== "http:" && next.protocol !== "https:") return finish({ error: "That link redirects somewhere Folio can't open." });
+      if (++hops > 10) return finish({ error: t("That link redirects too many times.") });
+      if (next.protocol !== "http:" && next.protocol !== "https:") return finish({ error: t("That link redirects somewhere Folio can't open.") });
       url = next;
       request.followRedirect();
     });
     request.on("error", () => finish({ error: guard.refusedLocal()
-      ? "That link leads to a local network address, so Folio didn't follow it." : `Couldn't reach ${url.hostname}.` }));
+      ? t("That link leads to a local network address, so Folio didn't follow it.") : t("Couldn't reach {host}.", { host: url.hostname }) }));
     request.on("response", (response) => {
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        return finish({ error: `The server responded with ${response.statusCode}${response.statusMessage ? " " + response.statusMessage : ""}.` });
+        return finish({ error: t("The server responded with {status}.", { status: `${response.statusCode}${response.statusMessage ? " " + response.statusMessage : ""}` }) });
       }
       const header = (key) => [].concat(response.headers[key] ?? [])[0];
       // A webpage: stop downloading and let the caller render it to PDF instead.
       if (/\b(text\/html|application\/xhtml\+xml)\b/i.test(header("content-type") ?? "")) {
         return finish({ webpage: url.toString() });
       }
-      const tooBig = { error: "That PDF is larger than 300 MB." };
+      const tooBig = { error: t("That PDF is larger than 300 MB.") };
       if (Number(header("content-length")) > MAX_URL_PDF_BYTES) return finish(tooBig);
       const chunks = [];
       let size = 0;
@@ -498,7 +519,7 @@ async function downloadPdf(url, approvedLocal, signal) {
         if (/^\s*(<!doctype html|<html|<head|<body)/i.test(head.subarray(0, 512).toString("latin1"))) {
           finish({ webpage: url.toString() });
         } else {
-          finish({ error: "That link isn't a PDF or a webpage." });
+          finish({ error: t("That link isn't a PDF or a webpage.") });
         }
         return false;
       };
@@ -512,7 +533,7 @@ async function downloadPdf(url, approvedLocal, signal) {
           checkHeader(Buffer.concat(chunks, 1024));
         }
       });
-      response.on("error", () => finish({ error: "The download was interrupted." }));
+      response.on("error", () => finish({ error: t("The download was interrupted.") }));
       response.on("end", () => {
         if (done) return;
         const data = Buffer.concat(chunks);
@@ -535,11 +556,11 @@ function registerDigitalSigning(handle) {
   let certificate = null;
   const result = async (work) => {
     try { return await work(); } catch (error) {
-      return { error: error instanceof signing().CertificateError ? error.message : "Couldn't sign this document." };
+      return { error: error instanceof signing().CertificateError ? i18n.translateKnown(error.message) : t("Couldn't sign this document.") };
     }
   };
   const chosen = (id) => {
-    if (!certificate || typeof id !== "string" || id !== certificate.id) throw new signing().CertificateError("Choose the certificate again.");
+    if (!certificate || typeof id !== "string" || id !== certificate.id) throw new signing().CertificateError(t("Choose the certificate again."));
     return certificate;
   };
   const load = async (file) => {
@@ -553,16 +574,16 @@ function registerDigitalSigning(handle) {
       filters: [{ name: t("certificates"), extensions: ["p12", "pfx"] }] });
     if (picked.canceled || !picked.filePaths[0]) return null;
     try { return await load(picked.filePaths[0]); }
-    catch { throw new signing().CertificateError("Couldn't read that certificate file."); }
+    catch { throw new signing().CertificateError(t("Couldn't read that certificate file.")); }
   }));
   handle("folio:signing-saved-certificates", () => store.list());
   handle("folio:signing-use-saved", (_event, savedId) => result(async () => {
     const entry = store.find(savedId);
-    if (!entry) throw new signing().CertificateError("That saved certificate isn't available anymore. Choose the file again.");
+    if (!entry) throw new signing().CertificateError(t("That saved certificate isn't available anymore. Choose the file again."));
     try { return await load(entry.path); }
     catch {
-      if (fs.existsSync(entry.path)) throw new signing().CertificateError("Couldn't read that certificate file.");
-      return { error: `“${path.basename(entry.path)}” isn't where it was saved. It may have been moved, renamed, or deleted. Choose it again.`,
+      if (fs.existsSync(entry.path)) throw new signing().CertificateError(t("Couldn't read that certificate file."));
+      return { error: t("“{name}” isn't where it was saved. It may have been moved, renamed, or deleted. Choose it again.", { name: path.basename(entry.path) }),
         missing: true };
     }
   }));
@@ -571,18 +592,18 @@ function registerDigitalSigning(handle) {
     return store.list();
   });
   handle("folio:signing-read-certificate", (_event, id, password) => result(() => {
-    if (typeof password !== "string") throw new signing().CertificateError("Enter the certificate's password.");
+    if (typeof password !== "string") throw new signing().CertificateError(t("Enter the certificate's password."));
     return signing().readP12(chosen(id).data, password);
   }));
   handle("folio:signing-forget", () => { certificate = null; return true; });
   handle("folio:signing-sign", (_event, request) => result(async () => {
     const { id, password, pdf, page, rect, field, reason, location, name, remember } = request ?? {};
-    if (typeof password !== "string") throw new signing().CertificateError("Enter the certificate's password.");
+    if (typeof password !== "string") throw new signing().CertificateError(t("Enter the certificate's password."));
     // A field name from the page only picks an existing, unsigned signature field; signPdf checks that it is one.
     if (field !== undefined && (typeof field !== "string" || !field || field.length > signing().MAX_FIELD_NAME || /[\u0000-\u001f]/.test(field))) {
-      throw new signing().CertificateError("That signature field isn't valid. Choose another stamp position.");
+      throw new signing().CertificateError(t("That signature field isn't valid. Choose another stamp position."));
     }
-    if (!(pdf instanceof Uint8Array) || pdf.length > MAX_DOCUMENT_BYTES) throw new signing().CertificateError("This document is too large to sign.");
+    if (!(pdf instanceof Uint8Array) || pdf.length > MAX_DOCUMENT_BYTES) throw new signing().CertificateError(t("This document is too large to sign."));
     const identity = chosen(id);
     const signed = await signing().signPdf(pdf, { p12: identity.data, password, page, rect, field,
       reason: typeof reason === "string" ? reason : "", location: typeof location === "string" ? location : "" });
@@ -597,7 +618,7 @@ function registerDigitalSigning(handle) {
     if (target.canceled || !target.filePath) return null;
     const file = /\.pdf$/i.test(target.filePath) ? target.filePath : target.filePath + ".pdf";
     try { checkDiskPath(file); await fs.promises.writeFile(file, signed); }
-    catch { throw new signing().CertificateError("Couldn't save the signed copy there. Choose another folder."); }
+    catch { throw new signing().CertificateError(t("Couldn't save the signed copy there. Choose another folder.")); }
     certificate = null;
     return { name: path.basename(file), data: signed };
   }));
@@ -644,9 +665,10 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     i18n.setLanguage("system", app.getLocale());
+    updateNativeMenu();
     on("folio:system-locale", event => { event.returnValue = app.getLocale(); });
     on("folio:language", (_event, choice) => {
-      if (["system", "en", "es"].includes(choice)) i18n.setLanguage(choice, app.getLocale());
+      if (["system", "en", "es"].includes(choice)) { i18n.setLanguage(choice, app.getLocale()); updateNativeMenu(); }
     });
 
     ai.register(handle, (channel, payload) => win?.webContents.send(channel, payload));
@@ -659,9 +681,10 @@ if (!app.requestSingleInstanceLock()) {
       return files.length > 0;
     });
     // Word documents picked or dropped in Folio (PDFs are read by the page itself).
-    handle("folio:open-document", (_event, file) => {
+    handle("folio:open-document", async (_event, file) => {
       if (typeof file !== "string" || !WORD_FILE.test(file) || !path.isAbsolute(file)) throw new Error("Not a Word document");
-      return openWord(file, (msg) => logConvert(`${file}: ${msg}`));
+      try { return await openWord(file, (msg) => logConvert(`${file}: ${msg}`)); }
+      catch (error) { return { error: i18n.translateKnown(error?.userMessage) || t("The document may be damaged or protected with a password.") }; }
     });
     // PDF links open directly; webpages are converted to a PDF first. An address on this computer or the local
     // network opens only once the user agrees (cancelling resolves to { cancelled: true }).
@@ -671,9 +694,9 @@ if (!app.requestSingleInstanceLock()) {
     handle("folio:fetch-pdf", async (_event, rawUrl, id) => {
       let url;
       try { url = new URL(typeof rawUrl === "string" && rawUrl.length <= 8192 ? rawUrl.trim() : ""); }
-      catch { return { error: "That isn't a valid web address." }; }
-      if (url.protocol !== "http:" && url.protocol !== "https:") return { error: "Only http:// and https:// links can be opened." };
-      if (importing) return { error: "Another link is still opening." };
+      catch { return { error: t("That isn't a valid web address.") }; }
+      if (url.protocol !== "http:" && url.protocol !== "https:") return { error: t("Only http:// and https:// links can be opened.") };
+      if (importing) return { error: t("Another link is still opening.") };
       const controller = new AbortController();
       const { signal } = controller;
       importing = { id: typeof id === "string" ? id : "", controller };
@@ -686,7 +709,7 @@ if (!app.requestSingleInstanceLock()) {
         if (!result.webpage) return result;
         return await captureWebpage(result.webpage, approved?.origin === new URL(result.webpage).origin ? approved : null, signal);
       } catch {
-        return signal.aborted ? { cancelled: true } : { error: `Couldn't open a verified connection to ${url.hostname}.` };
+        return signal.aborted ? { cancelled: true } : { error: t("Couldn't open a verified connection to {host}.", { host: url.hostname }) };
       } finally { importing = null; }
     });
     handle("folio:cancel-fetch-pdf", (_event, id) => {

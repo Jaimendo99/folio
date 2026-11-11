@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 // Recently opened files, kept locally in IndexedDB so they can be reopened with one click.
 
 export interface RecentFile {
@@ -226,7 +227,7 @@ async function withGeneration<T>(category: StoredCategory, mode: IDBTransactionM
     let result: IDBRequest<T> | void;
     read.onsuccess = () => { result = run(transaction.objectStore(category), read.result ?? 0, generations); };
     transaction.oncomplete = () => resolve({ value: result?.result, generation: read.result ?? 0 });
-    transaction.onabort = () => reject(transaction.error ?? new Error("Stored data is unavailable."));
+    transaction.onabort = () => reject(transaction.error ?? new Error(translateUi("Stored data is unavailable.")));
   });
 }
 

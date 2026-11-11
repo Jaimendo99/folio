@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFObjectParser, PDFRawStream } from "pdf-lib/es";
 import ByteStream from "pdf-lib/es/core/parser/ByteStream";
 import { checkPdfSize } from "./pdfInput";
@@ -26,10 +27,10 @@ function imageOperands(bytes: Uint8Array, pdf: PDFDocument, resources: PDFDict) 
       operand = object instanceof PDFName ? { key: object, start, end: stream.offset() } : null;
       continue;
     }
-    if (delimiter(c)) throw new Error("Couldn't identify the image placement in this PDF.");
+    if (delimiter(c)) throw new Error(translateUi("Couldn't identify the image placement in this PDF."));
     while (!stream.done() && !delimiter(stream.peek())) stream.next();
     const token = stream.offset() - start < 4 ? String.fromCharCode(...bytes.subarray(start, stream.offset())) : "";
-    if (token === "BI") throw new Error("Folio can't replace images on pages containing inline image data.");
+    if (token === "BI") throw new Error(translateUi("Folio can't replace images on pages containing inline image data."));
     if (token === "Do" && operand) {
       const image = resources.lookup(operand.key);
       if (image instanceof PDFRawStream && image.dict.get(name("Subtype")) === name("Image")) placements.push(operand);
@@ -40,20 +41,20 @@ function imageOperands(bytes: Uint8Array, pdf: PDFDocument, resources: PDFDict) 
 }
 
 export async function replacePageImage(source: Uint8Array, pageNumber: number, ordinal: number, count: number, file: File) {
-  if (file.size > 24 * 1024 * 1024) throw new Error("Choose an image smaller than 24 MB.");
+  if (file.size > 24 * 1024 * 1024) throw new Error(translateUi("Choose an image smaller than 24 MB."));
   const pdf = await PDFDocument.load(source, { updateMetadata: false });
   const page = pdf.getPage(pageNumber - 1).node;
   const resources = page.Resources()?.clone();
   const xObjects = resources?.lookupMaybe(name("XObject"), PDFDict)?.clone();
-  if (!resources || !xObjects) throw new Error("Couldn't find an embedded image on this page.");
+  if (!resources || !xObjects) throw new Error(translateUi("Couldn't find an embedded image on this page."));
   const contents = page.Contents();
   const streams = contents instanceof PDFArray ? contents.asArray().map(ref => pdf.context.lookup(ref)) : [contents];
   let size = 0;
   const parts = streams.map(s => {
-    if (!(s instanceof PDFRawStream)) throw new Error("Couldn't read this page's image placements.");
+    if (!(s instanceof PDFRawStream)) throw new Error(translateUi("Couldn't read this page's image placements."));
     const part = decodePDFRawStream(s).getBytes(MAX_CONTENT - size + 1);
     size += part.length + 1;
-    if (size > MAX_CONTENT) throw new Error("This page's drawing instructions are too large to edit.");
+    if (size > MAX_CONTENT) throw new Error(translateUi("This page's drawing instructions are too large to edit."));
     return part;
   });
   const commands = new Uint8Array(size);
@@ -61,17 +62,17 @@ export async function replacePageImage(source: Uint8Array, pageNumber: number, o
   for (const part of parts) { commands.set(part, offset); offset += part.length; commands[offset++] = 10; }
   const placements = imageOperands(commands, pdf, xObjects);
   const place = placements[ordinal];
-  if (placements.length !== count || !place) throw new Error("Couldn't identify this image placement reliably.");
+  if (placements.length !== count || !place) throw new Error(translateUi("Couldn't identify this image placement reliably."));
 
   const data = new Uint8Array(await file.arrayBuffer());
   let image;
   if (data[0] === 0xff && data[1] === 0xd8) image = await pdf.embedJpg(data);
   else if (data.length >= 24 && new DataView(data.buffer).getUint32(0) === 0x89504e47) {
     const header = new DataView(data.buffer);
-    if (header.getUint32(16) * header.getUint32(20) > 20_000_000) throw new Error("Choose an image under 20 megapixels.");
+    if (header.getUint32(16) * header.getUint32(20) > 20_000_000) throw new Error(translateUi("Choose an image under 20 megapixels."));
     image = await pdf.embedPng(data);
-  } else throw new Error("Choose a PNG or JPEG image.");
-  if (image.width * image.height > 20_000_000) throw new Error("Choose an image under 20 megapixels.");
+  } else throw new Error(translateUi("Choose a PNG or JPEG image."));
+  if (image.width * image.height > 20_000_000) throw new Error(translateUi("Choose an image under 20 megapixels."));
 
   // Change only the chosen Do operand. This retains its clipping, tags, transforms and stacking order,
   // including when other pages share the original image, resources, or even the entire content stream.
@@ -86,7 +87,7 @@ export async function replacePageImage(source: Uint8Array, pageNumber: number, o
     offset += part.length + 1;
     return false;
   });
-  if (index < 0) throw new Error("This image placement crosses content streams.");
+  if (index < 0) throw new Error(translateUi("This image placement crosses content streams."));
   const part = parts[index], start = place.start - offset, end = place.end - offset;
   const changed = new Uint8Array(part.length - (end - start) + keyBytes.length);
   changed.set(part.subarray(0, start));

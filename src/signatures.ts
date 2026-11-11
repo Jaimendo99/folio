@@ -1,3 +1,4 @@
+import { translateUi } from "./i18n";
 import { AnnotationEditorType } from "pdfjs-dist";
 import type { PDFDocumentProxy } from "./pdf";
 import type { PDFViewer } from "./viewer";
@@ -23,7 +24,7 @@ export function detectSignatureTargets(pdf: PDFDocumentProxy, pageNumber: number
       const fields: SignatureTarget[] = annotations.filter(annotation => annotation.subtype === "Widget"
         && annotation.fieldType === "Sig" && !annotation.fieldValue && !(annotation.fieldFlags & 1)
         && !(annotation.annotationFlags & 35) && annotation.rect.length === 4 && annotation.rect.every(Number.isFinite))
-        .map((annotation): SignatureTarget => ({ id: annotation.id, label: annotation.alternativeText || annotation.fieldName || "Signature field",
+        .map((annotation): SignatureTarget => ({ id: annotation.id, label: annotation.alternativeText || annotation.fieldName || translateUi("Signature field"),
           fieldName: typeof annotation.fieldName === "string" && annotation.fieldName ? annotation.fieldName : undefined,
           rect: [Math.max(page.view[0], annotation.rect[0]), Math.max(page.view[1], annotation.rect[1]),
             Math.min(page.view[2], annotation.rect[2]), Math.min(page.view[3], annotation.rect[3])], kind: "field" }))
@@ -36,7 +37,7 @@ export function detectSignatureTargets(pdf: PDFDocumentProxy, pageNumber: number
         const [left, bottom, right, top] = page.view;
         const positionX = Math.max(left, Math.min(item.transform[4], right - Math.min(180, right - left)));
         const positionY = Math.max(bottom, Math.min(item.transform[5] + Math.max(item.height, 10) + 3, top - 42));
-        return [{ id: "label-" + index, label: item.str.trim().slice(0, 80) + " (suggested)",
+        return [{ id: "label-" + index, label: item.str.trim().slice(0, 80) + translateUi(" (suggested)"),
           rect: [positionX, positionY, Math.min(right, positionX + 180), Math.min(top, positionY + 42)], kind: "label" }];
       }).slice(0, 12);
     })();
@@ -58,31 +59,31 @@ export function fitSignature(signature: SignatureImage, bounds: number[]) {
 }
 
 export async function placeSignature(viewer: PDFViewer, pdf: PDFDocumentProxy, pageNumber: number, signature: SignatureImage, rect: number[]) {
-  if (viewer.pdfDocument !== pdf) throw new Error("The document changed. Open Sign again.");
+  if (viewer.pdfDocument !== pdf) throw new Error(translateUi("The document changed. Open Sign again."));
   viewer.currentPageNumber = pageNumber;
   viewer.annotationEditorMode = { mode: AnnotationEditorType.STAMP };
   try {
     let layer;
     for (let attempt = 0; attempt < 120; attempt++) {
-      if (viewer.pdfDocument !== pdf) throw new Error("The document changed.");
+      if (viewer.pdfDocument !== pdf) throw new Error(translateUi("The document changed."));
       layer = viewer.getPageView(pageNumber - 1)?.annotationEditorLayer?.annotationEditorLayer;
       if (layer) break;
       await new Promise(resolve => setTimeout(resolve, 25));
     }
-    if (!layer) throw new Error("The page isn't ready for signatures. Please try again.");
+    if (!layer) throw new Error(translateUi("The page isn't ready for signatures. Please try again."));
     const { pageX, pageY } = layer.viewport.rawDims;
     const localRect = rect.map((coordinate, index) => coordinate - (index % 2 === 0 ? pageX : pageY));
     const editor = await layer.deserialize({ annotationType: AnnotationEditorType.STAMP, pageIndex: pageNumber - 1,
       rect: localRect, rotation: 0, bitmapUrl: signature.url, isSvg: false,
-      accessibilityData: { decorative: false, altText: "Handwritten signature" } });
-    if (!editor || viewer.pdfDocument !== pdf) throw new Error("Couldn't add the signature to this document.");
+      accessibilityData: { decorative: false, altText: translateUi("Handwritten signature") } });
+    if (!editor || viewer.pdfDocument !== pdf) throw new Error(translateUi("Couldn't add the signature to this document."));
     layer.add(editor);
     for (let attempt = 0; attempt < 120; attempt++) {
       if (editor.div?.querySelector("canvas")) return;
       await new Promise(resolve => setTimeout(resolve, 25));
     }
     editor.remove();
-    throw new Error("Couldn't load the signature image. Please try again.");
+    throw new Error(translateUi("Couldn't load the signature image. Please try again."));
   } finally {
     if (viewer.pdfDocument === pdf) viewer.annotationEditorMode = { mode: AnnotationEditorType.NONE };
   }
@@ -107,7 +108,7 @@ export function cleanSignature(source: HTMLCanvasElement, crop: number[], thresh
       left = Math.min(left, pixelX); right = Math.max(right, pixelX); top = Math.min(top, pixelY); bottom = Math.max(bottom, pixelY);
     }
   }
-  if (right - left < 8 || bottom - top < 3) throw new Error("No signature found. Crop closer or increase ink sensitivity.");
+  if (right - left < 8 || bottom - top < 3) throw new Error(translateUi("No signature found. Crop closer or increase ink sensitivity."));
   context.putImageData(image, 0, 0);
   const trimmed = document.createElement("canvas");
   trimmed.width = right - left + 9; trimmed.height = bottom - top + 9;

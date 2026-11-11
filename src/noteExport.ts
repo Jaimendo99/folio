@@ -1,8 +1,9 @@
+import { translateKnownUi, translateUi } from "./i18n";
 import type { Mark, MarkupState } from "./markup";
 import type { OutlineItem, PDFDocumentProxy } from "./pdf";
 
 export function notesMarkdown(name: string, { note, marks, bookmarkedPages }: MarkupState) {
-  const lines = [`# Notes: ${name.replace(/\.pdf$/i, "")}`, ""];
+  const lines = [`# ${translateUi("Notes: {v0}", { v0: name.replace(/\.pdf$/i, "") })}`, ""];
   if (note.trim()) lines.push(note.trim(), "");
   for (const mark of marks) {
     const page = `p. ${mark.page + 1}`;
@@ -11,12 +12,12 @@ export function notesMarkdown(name: string, { note, marks, bookmarkedPages }: Ma
       if (mark.note) lines.push("", mark.note);
       lines.push("");
     } else if (mark.type === "freetext" && mark.text) {
-      lines.push(`- Text box (${page}): ${mark.text}`, "");
+      lines.push(`- ${translateUi("Text box ({v0}): {v1}", { v0: page, v1: mark.text })}`, "");
     } else if (mark.type === "ink") {
-      lines.push(`- ${mark.shape ?? "Drawing"} (${page})`, "");
+      lines.push(`- ${translateKnownUi(mark.shape ?? "Drawing")} (${page})`, "");
     }
   }
-  if (bookmarkedPages?.length) lines.push("## Bookmarked pages", "", ...bookmarkedPages.map(n => `- p. ${n}`));
+  if (bookmarkedPages?.length) lines.push(`## ${translateUi("Bookmarked pages")}`, "", ...bookmarkedPages.map(n => `- p. ${n}`));
   return lines.join("\n").trim() + "\n";
 }
 

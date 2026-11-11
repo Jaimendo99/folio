@@ -1,7 +1,9 @@
+import { uiEn, uiEs } from "./uiMessages.ts";
 import { useSyncExternalStore } from "react";
-import { readSetting, writeSetting } from "./preferences";
+import { readSetting, writeSetting } from "./preferences.ts";
 
 const en = {
+  highlightNoun: "Highlight",
   back: "Back", forward: "Forward", newTab: "New tab", closeDocument: "Close document", saveCopy: "Save a copy",
   history: "Version history", print: "Print", info: "Document info", focus: "Focus mode", shortcuts: "Keyboard shortcuts", about: "About Folio",
   languageSaveFailed: "Could not save the language preference.",
@@ -19,6 +21,7 @@ const en = {
   restartUpdate: "Restart to update to {version}", downloadFolio: "Download Folio {version}", updateFailed: "Couldn't check for updates",
 } as const;
 const es: { [K in keyof typeof en]: string } = {
+  highlightNoun: "Resaltado",
   back: "Atrás", forward: "Adelante", newTab: "Nueva pestaña", closeDocument: "Cerrar documento", saveCopy: "Guardar una copia",
   history: "Historial de versiones", print: "Imprimir", info: "Información del documento", focus: "Modo de concentración", shortcuts: "Atajos de teclado", about: "Acerca de Folio",
   languageSaveFailed: "No se pudo guardar la preferencia de idioma.",
@@ -39,14 +42,18 @@ export type Language = "system" | "en" | "es";
 const key = "folio:language";
 const systemLocale = (() => {
   try { return (window.folioDesktop ?? window.parent.folioDesktop)?.systemLocale || navigator.language; }
-  catch { return navigator.language; }
+  catch { return typeof navigator === "undefined" ? "en" : navigator.language; }
 })();
-let preference: Language = (() => { const value = readSetting(key); return value === "en" || value === "es" ? value : "system"; })();
+let preference: Language = (() => {
+  if (typeof window === "undefined") return "system";
+  const value = readSetting(key);
+  return value === "en" || value === "es" ? value : "system";
+})();
 const listeners = new Set<() => void>();
 export function locale(): "en" | "es" { return preference === "system" ? (/^es(?:[-_]|$)/i.test(systemLocale) ? "es" : "en") : preference; }
 function changed() {
-  document.documentElement.lang = locale();
-  window.folioDesktop?.setLanguage(preference);
+  if (typeof document !== "undefined") document.documentElement.lang = locale();
+  if (typeof window !== "undefined") window.folioDesktop?.setLanguage(preference);
   listeners.forEach(fn => fn());
 }
 export function setLanguage(value: Language): boolean {
@@ -55,7 +62,7 @@ export function setLanguage(value: Language): boolean {
   changed();
   return saved;
 }
-window.addEventListener("storage", event => {
+if (typeof window !== "undefined") window.addEventListener("storage", event => {
   if (event.key !== key && event.key !== null) return;
   const value = readSetting(key);
   preference = value === "en" || value === "es" ? value : "system";
@@ -68,3 +75,12 @@ export function t(id: keyof typeof en, values: Record<string, string | number> =
   return (locale() === "es" ? es[id] : en[id]).replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`));
 }
 changed();
+
+export function translateUi(key: keyof typeof uiEn, values: Record<string, unknown> = {}): string {
+  return (locale() === "es" ? uiEs[key] : uiEn[key]).replace(/\{(v\d+)\}/g, (_, name: string) => String(values[name] ?? ""));
+}
+
+/** Translates a known UI message received from a worker or selected from a fixed list. */
+export function translateKnownUi(message: string): string {
+  return Object.hasOwn(uiEn, message) ? translateUi(message as keyof typeof uiEn) : message;
+}

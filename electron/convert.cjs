@@ -1,3 +1,4 @@
+const { t } = require("./i18n.cjs");
 // Word documents (.doc, .docx) are converted to PDF before Folio opens them. The best converter on the computer
 // wins: Microsoft Word (Windows), then LibreOffice (any platform), then Folio's own, which lays the text, tables,
 // and images out in a hidden window and prints them (.docx everywhere; .doc on macOS, through textutil).
@@ -105,7 +106,7 @@ function runWorker(script, serviceName, data) {
     const timer = setTimeout(() => stop(new Error("timed out")), CONVERT_TIMEOUT_MS);
     const watch = setInterval(() => {
       const memory = app.getAppMetrics().find((metric) => metric.pid === worker.pid)?.memory.workingSetSize ?? 0; // KB
-      if (memory * 1024 > WORKER_MEMORY_LIMIT) stop(Object.assign(new Error("ran out of memory"), { userMessage: "It's too large to convert." }));
+      if (memory * 1024 > WORKER_MEMORY_LIMIT) stop(Object.assign(new Error("ran out of memory"), { userMessage: t("It's too large to convert.") }));
     }, 250);
     worker.once("message", (result) => stop(result.error ? Object.assign(new Error(result.error), { userMessage: result.userMessage }) : null, result));
     worker.once("exit", (code) => stop(new Error(`stopped (exit code ${code})`)));
@@ -168,7 +169,7 @@ async function builtIn(source, dir, title) {
     if (Buffer.byteLength(html) > MAX_HTML_BYTES) throw tooLarge(MAX_HTML_BYTES);
     await fs.promises.writeFile(htmlFile, html);
   } else {
-    throw Object.assign(new Error("no converter"), { userMessage: "Converting .doc files needs Microsoft Word or LibreOffice. Install either one, or save the document as .docx." });
+    throw Object.assign(new Error("no converter"), { userMessage: t("Converting .doc files needs Microsoft Word or LibreOffice. Install either one, or save the document as .docx.") });
   }
   return printHtml(htmlFile);
 }
@@ -199,7 +200,7 @@ async function convertStaged(source, dir, title, log) {
     try { return await builtIn(source, dir, title); }
     catch (error) { fail("Folio", error); }
   }
-  throw Object.assign(new Error(failures.join("\n")), { userMessage: "The document may be damaged or protected with a password." });
+  throw Object.assign(new Error(failures.join("\n")), { userMessage: t("The document may be damaged or protected with a password.") });
 }
 
 async function convertDocument(file, log) {
@@ -221,7 +222,7 @@ async function convertDocument(file, log) {
         if (index) {
           const name = pdfName(staged.location.name, index);
           await rememberPdf(profile, staged, index, data).catch((error) => log(error.message));
-          return { name, data, note: `Saved ${name} next to ${original}.` };
+          return { name, data, note: t("Saved {name} next to {original}.", { name, original }) };
         }
       } catch (error) { log(error.message); }
     }

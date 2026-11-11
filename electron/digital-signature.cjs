@@ -1,3 +1,4 @@
+const { t, currentLanguage } = require("./i18n.cjs");
 // Digital signatures (PAdES, adbe.pkcs7.detached) made with a .p12/.pfx certificate, plus a visible stamp.
 // Runs in the main process only, so the private key never reaches the page.
 // node-forge reads the certificate because many issuers (Ecuador's Banco Central, Security Data, Uanataca, ANF...)
@@ -42,23 +43,23 @@ function canSign(cert) {
 
 /** Decrypts the certificate and picks the signing identity: the end-entity certificate that matches a private key. */
 function openP12(data, password) {
-  if (!data || data.length === 0 || data.length > MAX_CERTIFICATE_BYTES) throw new CertificateError("This isn't a .p12 or .pfx certificate.");
+  if (!data || data.length === 0 || data.length > MAX_CERTIFICATE_BYTES) throw new CertificateError(t("This isn't a .p12 or .pfx certificate."));
   let asn1;
   try { asn1 = forge.asn1.fromDer(forge.util.createBuffer(Buffer.from(data).toString("binary"))); }
-  catch { throw new CertificateError("This isn't a .p12 or .pfx certificate."); }
+  catch { throw new CertificateError(t("This isn't a .p12 or .pfx certificate.")); }
   let p12;
   try { p12 = forge.pkcs12.pkcs12FromAsn1(asn1, false, String(password ?? "")); }
   catch (error) {
-    if (/password|mac/i.test(String(error?.message))) throw new CertificateError("Wrong password for this certificate.");
+    if (/password|mac/i.test(String(error?.message))) throw new CertificateError(t("Wrong password for this certificate."));
     // Without a MAC to check, a wrong password shows up as undecryptable contents.
-    throw new CertificateError("Couldn't open the certificate. Check the password.");
+    throw new CertificateError(t("Couldn't open the certificate. Check the password."));
   }
   const bags = (type) => p12.getBags({ bagType: type })[type] ?? [];
   const keyBags = [...bags(forge.pki.oids.pkcs8ShroudedKeyBag), ...bags(forge.pki.oids.keyBag)];
   const certs = bags(forge.pki.oids.certBag).map(bag => bag.cert).filter(Boolean);
-  if (!keyBags.length) throw new CertificateError("This certificate file has no private key, so it can't sign.");
+  if (!keyBags.length) throw new CertificateError(t("This certificate file has no private key, so it can't sign."));
   const keys = keyBags.map(bag => bag.key).filter(Boolean);
-  if (!keys.length) throw new CertificateError("Only RSA certificates can sign in Folio.");
+  if (!keys.length) throw new CertificateError(t("Only RSA certificates can sign in Folio."));
 
   // Some files hold several certificates and keys; the signer is the one whose public key matches a private key.
   const now = new Date();
@@ -69,10 +70,10 @@ function openP12(data, password) {
       if (pub?.n && pub.n.equals(key.n) && pub.e.equals(key.e)) pairs.push({ key, cert });
     }
   }
-  if (!pairs.length) throw new CertificateError("The private key in this file doesn't match any of its certificates.");
+  if (!pairs.length) throw new CertificateError(t("The private key in this file doesn't match any of its certificates."));
   // Validators reject signatures from CA certificates and from ones not issued for signing, so those never sign.
   const usable = pairs.filter(({ cert }) => canSign(cert));
-  if (!usable.length) throw new CertificateError("This certificate isn't meant for signing documents. Choose your signing certificate.");
+  if (!usable.length) throw new CertificateError(t("This certificate isn't meant for signing documents. Choose your signing certificate."));
   const score = ({ cert }) => (cert.getExtension("keyUsage") ? 2 : 0)
     + (cert.validity.notBefore <= now && now <= cert.validity.notAfter ? 4 : 0);
   usable.sort((a, b) => score(b) - score(a));
@@ -81,8 +82,8 @@ function openP12(data, password) {
 }
 
 function describe(cert, now = new Date()) {
-  const name = field(cert.subject, "CN") || [field(cert.subject, "GN"), field(cert.subject, "SN")].filter(Boolean).join(" ") || "Unknown signer";
-  const provider = field(cert.issuer, "O") || field(cert.issuer, "CN") || "Unknown issuer";
+  const name = field(cert.subject, "CN") || [field(cert.subject, "GN"), field(cert.subject, "SN")].filter(Boolean).join(" ") || t("Unknown signer");
+  const provider = field(cert.issuer, "O") || field(cert.issuer, "CN") || t("Unknown issuer");
   return {
     name, provider, serial: cert.serialNumber,
     validFrom: cert.validity.notBefore.toISOString(), validTo: cert.validity.notAfter.toISOString(),
@@ -295,14 +296,14 @@ function existingField(pdfDoc, name, preferredPage) {
   let fields = [];
   try { fields = pdfDoc.getForm().getFields(); } catch { /* no usable form */ }
   const target = fields.find(item => item.getName() === name);
-  if (!target) throw new CertificateError("That signature field isn't in this document anymore. Choose another stamp position.");
-  if (!(target instanceof PDFSignature)) throw new CertificateError("That field isn't a signature field.");
-  if (target.acroField.dict.has(PDFName.of("V"))) throw new CertificateError("That signature field is already signed.");
+  if (!target) throw new CertificateError(t("That signature field isn't in this document anymore. Choose another stamp position."));
+  if (!(target instanceof PDFSignature)) throw new CertificateError(t("That field isn't a signature field."));
+  if (target.acroField.dict.has(PDFName.of("V"))) throw new CertificateError(t("That signature field is already signed."));
   const widgets = target.acroField.getWidgets().map(widget => {
     const ref = pdfDoc.context.getObjectRef(widget.dict);
     return { widget, ref, pageIndex: pageIndexOf(pdfDoc, ref, widget) };
   }).filter(item => item.pageIndex >= 0);
-  if (!widgets.length) throw new CertificateError("That signature field isn't on any page. Choose another stamp position.");
+  if (!widgets.length) throw new CertificateError(t("That signature field isn't on any page. Choose another stamp position."));
   return { field: target, ...(widgets.find(item => item.pageIndex === preferredPage - 1) ?? widgets[0]) };
 }
 
@@ -313,25 +314,25 @@ function existingField(pdfDoc, name, preferredPage) {
  */
 async function signPdf(pdfBytes, { p12, password, page = 1, rect, field: fieldName, reason = "", location = "", now = new Date() }) {
   if (fieldName !== undefined && fieldName !== null && (typeof fieldName !== "string" || !fieldName || fieldName.length > MAX_FIELD_NAME)) {
-    throw new CertificateError("That signature field isn't valid. Choose another stamp position.");
+    throw new CertificateError(t("That signature field isn't valid. Choose another stamp position."));
   }
   const identity = openP12(p12, password);
   const { info } = identity;
-  const day = (iso) => iso.slice(0, 10);
-  if (info.expired) throw new CertificateError(`This certificate expired on ${day(info.validTo)}. Signatures made with it aren't valid.`);
-  if (info.notYetValid) throw new CertificateError(`This certificate is valid from ${day(info.validFrom)}.`);
+  const day = (iso) => new Intl.DateTimeFormat(currentLanguage(), { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(iso));
+  if (info.expired) throw new CertificateError(t("This certificate expired on {v0}. Signatures made with it aren't valid.", { v0: day(info.validTo) }));
+  if (info.notYetValid) throw new CertificateError(t("This certificate is valid from {v0}.", { v0: day(info.validFrom) }));
 
   let pdfDoc;
   try { pdfDoc = await PDFDocument.load(pdfBytes, { updateMetadata: false }); }
   catch (error) {
-    if (/encrypt/i.test(String(error?.message))) throw new CertificateError("Folio can't sign password-protected PDFs.");
-    throw new CertificateError("Couldn't read this PDF for signing.");
+    if (/encrypt/i.test(String(error?.message))) throw new CertificateError(t("Folio can't sign password-protected PDFs."));
+    throw new CertificateError(t("Couldn't read this PDF for signing."));
   }
-  if (pdfDoc.isEncrypted) throw new CertificateError("Folio can't sign password-protected PDFs.");
+  if (pdfDoc.isEncrypted) throw new CertificateError(t("Folio can't sign password-protected PDFs."));
   // Folio rewrites the whole file to add the signature, which would break signatures already in it.
   let signed = false;
   try { signed = pdfDoc.getForm().getFields().some(f => f instanceof PDFSignature && f.acroField.dict.has(PDFName.of("V"))); } catch { /* no usable form */ }
-  if (signed) throw new CertificateError("This PDF is already signed. Folio can't add another signature to it.");
+  if (signed) throw new CertificateError(t("This PDF is already signed. Folio can't add another signature to it."));
 
   const clean = (text) => String(text ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
   const details = { name: info.name, provider: info.provider, date: localIso(now), reason: clean(reason), location: clean(location) };
@@ -340,7 +341,7 @@ async function signPdf(pdfBytes, { p12, password, page = 1, rect, field: fieldNa
   if (fieldName) {
     const { field: target, widget } = existingField(pdfDoc, fieldName, Number(page));
     const box = widget.getRectangle();
-    if (box.width < 4 || box.height < 4) throw new CertificateError("That signature field is too small for a stamp. Choose another stamp position.");
+    if (box.width < 4 || box.height < 4) throw new CertificateError(t("That signature field is too small for a stamp. Choose another stamp position."));
     const appearance = await stampAppearance(pdfDoc, box.width, box.height, details);
     signatureForm(pdfDoc);
     target.acroField.dict.set(PDFName.of("V"), signatureDictionary(pdfDoc, { ...details, now }));

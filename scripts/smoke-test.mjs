@@ -84,12 +84,41 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem("folio:language")), "es");
   await page.reload();
   await page.getByRole("heading", { name: "Disfruta la lectura." }).waitFor();
+  assert.ok(await app.evaluate(({ Menu }) => Menu.getApplicationMenu().items.some(item => item.label === "Editar")), "native menu follows the language");
+  const nativePrompt = await app.evaluate(({ BrowserWindow, dialog }) => {
+    const original = dialog.showMessageBoxSync;
+    let request;
+    dialog.showMessageBoxSync = (_owner, options) => { request = options; return 1; };
+    try { BrowserWindow.getAllWindows()[0].webContents.emit("will-prevent-unload", { preventDefault() {} }); }
+    finally { dialog.showMessageBoxSync = original; }
+    return request;
+  });
+  assert.equal(nativePrompt.title, "Cambios sin guardar");
+  assert.deepEqual(nativePrompt.buttons, ["Cerrar sin guardar", "Cancelar"]);
+  await page.getByRole("button", { name: "Probar un documento de ejemplo" }).click();
+  const spanishTools = page.getByRole("toolbar", { name: "Herramientas" });
+  await spanishTools.getByRole("button", { name: "Seleccionar", exact: true }).waitFor();
+  await spanishTools.getByRole("button", { name: "Dibujar", exact: true }).click();
+  const spanishDrawingTool = page.getByRole("combobox", { name: "Herramienta de dibujo" });
+  await spanishDrawingTool.selectOption({ label: "Rectángulo" });
+  assert.equal(await spanishDrawingTool.inputValue(), "Rectangle", "translated choices keep their internal values");
+  await page.getByRole("button", { name: "Más", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Información del documento" }).click();
+  const spanishInfo = page.getByRole("dialog", { name: "Información del documento" });
+  await spanishInfo.getByText("Archivo", { exact: true }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ControlOrMeta+t");
+  await page.getByRole("heading", { name: "Disfruta la lectura." }).waitFor();
   await page.getByRole("button", { name: "Más", exact: true }).click();
   await page.getByRole("menuitem", { name: /Configuración/ }).click();
   await page.getByRole("radio", { name: "English" }).click();
   await page.getByRole("dialog", { name: "Settings" }).waitFor();
   await page.keyboard.press("Escape");
-  console.log("ok  language switches immediately and survives a reload");
+  await page.keyboard.press("ControlOrMeta+w");
+  await page.getByRole("toolbar", { name: "Tools" }).getByRole("button", { name: "Select", exact: true }).waitFor();
+  await page.keyboard.press("ControlOrMeta+w");
+  await page.getByRole("button", { name: /Try a sample/ }).waitFor();
+  console.log("ok  Spanish persists and covers document, dialogs, native menu, and open tabs");
 
   const platformClass = await page.evaluate(() => [...document.documentElement.classList].find((c) => c.startsWith("platform-")));
   assert.equal(platformClass, `platform-${process.platform}`);

@@ -1,3 +1,5 @@
+import { keys } from "./platform";
+import { translateUi } from "./i18n";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PDFViewer } from "./viewer";
@@ -179,23 +181,23 @@ export function StampPlacement({ viewer, container, pageNumber, suggestion, sign
 
   return <>
     {style && createPortal(<div ref={boxRef} className="stamp-box" style={style} tabIndex={0} role="img" data-busy={busy || undefined}
-      aria-label={`Signature stamp on page ${place!.page}. Drag to move, or use the arrow keys. Press + or - to resize.`}
+      aria-label={translateUi("Signature stamp on page {v0}. Drag to move, or use the arrow keys. Press + or - to resize.", { v0: place!.page })}
       onKeyDown={nudge}>
       <span className="stamp-qr" aria-hidden="true" />
-      <span className="stamp-text" aria-hidden="true"><small>Signed digitally by</small><strong>{signer}</strong></span>
-      <span className="stamp-resize" aria-hidden="true" title="Drag to resize" />
+      <span className="stamp-text" aria-hidden="true"><small>{translateUi("Signed digitally by")}</small><strong>{signer}</strong></span>
+      <span className="stamp-resize" aria-hidden="true" title={translateUi("Drag to resize")} />
     </div>, container)}
-    <div className="stamp-placement-bar" role="region" aria-label="Place the stamp">
+    <div className="stamp-placement-bar" role="region" aria-label={translateUi("Place the stamp")}>
       <div className="stamp-placement-text">
-        <strong>Place the stamp on page {place?.page ?? pageNumber}</strong>
-        <span>Drag it where it goes, or click the page. Drag the corner to resize.</span>
+        <strong>{translateUi("Place the stamp on page")} {place?.page ?? pageNumber}</strong>
+        <span>{translateUi("Drag it where it goes, or click the page. Drag the corner to resize.")}</span>
         {error && <span className="form-error" role="alert">{error}</span>}
       </div>
       <div className="form-actions">
-        <button className="btn ghost" disabled={busy} onClick={onBack}>Back</button>
-        <button className="btn ghost" disabled={busy} onClick={onCancel} title="Cancel (Esc)">Cancel</button>
+        <button className="btn ghost" disabled={busy} onClick={onBack}>{translateUi("Back")}</button>
+        <button className="btn ghost" disabled={busy} onClick={onCancel} title={keys(translateUi("Cancel (Esc)"))}>{translateUi("Cancel")}</button>
         <button className="btn primary" disabled={busy || !place} onClick={() => place && onSign(place.page, place.rect)}>
-          <Icon name="check" size={15} />{busy ? "Signing..." : "Sign"}</button>
+          <Icon name="check" size={15} />{busy ? translateUi("Signing...") : translateUi("Sign")}</button>
       </div>
     </div>
   </>;
