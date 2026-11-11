@@ -69,7 +69,8 @@ if (typeof window !== "undefined") window.addEventListener("storage", event => {
   changed();
 });
 export function useLanguage() {
-  return useSyncExternalStore(fn => { listeners.add(fn); return () => listeners.delete(fn); }, () => preference);
+  // The server snapshot lets tests render components with renderToString.
+  return useSyncExternalStore(fn => { listeners.add(fn); return () => listeners.delete(fn); }, () => preference, () => preference);
 }
 export function t(id: keyof typeof en, values: Record<string, string | number> = {}): string {
   return (locale() === "es" ? es[id] : en[id]).replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? `{${name}}`));
