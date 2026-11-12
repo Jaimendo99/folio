@@ -22,7 +22,8 @@ const args = process.argv.slice(2);
 const notesAt = args.indexOf("--notes");
 const notes = notesAt >= 0 ? args[notesAt + 1] : "";
 const publishOnly = args.includes("--publish-only");
-const bump = args.find((a, i) => !a.startsWith("--") && i !== notesAt + 1) || "patch";
+// Without --notes, notesAt is -1, so only skip the argument after --notes when it was given.
+const bump = args.find((a, i) => !a.startsWith("--") && !(notesAt >= 0 && i === notesAt + 1)) || "patch";
 if (!/^(patch|minor|major|\d+\.\d+\.\d+)$/.test(bump)) {
   console.error(`Unknown version bump "${bump}". Use patch, minor, major, or an exact version like 2.0.0.`);
   process.exit(1);
