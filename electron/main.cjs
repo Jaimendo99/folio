@@ -20,7 +20,11 @@ const { createCertificateStore } = require("./certificate-store.cjs");
 
 if (!app.isPackaged && process.env.FOLIO_TEST_USER_DATA) app.setPath("userData", process.env.FOLIO_TEST_USER_DATA);
 // Automated tests drive a window that never appears, so a local run doesn't take over the screen or focus.
-const TEST_HIDDEN = !app.isPackaged && process.env.FOLIO_TEST_HIDDEN === "1";
+// Installed builds ignore the variable; the release build's startup check asks with --folio-startup-check instead,
+// because it runs on the maintainer's Mac (a self-hosted runner).
+const TEST_HIDDEN = app.isPackaged
+  ? app.commandLine.hasSwitch("folio-startup-check")
+  : process.env.FOLIO_TEST_HIDDEN === "1";
 // macOS gives every ordinary app a Dock icon, whatever its windows do. An accessory app has none and can't come
 // forward by itself. The test scripts start a copy of Electron that is one from its first moment
 // (scripts/electron-path.mjs); this covers a hidden launch of the ordinary Electron, set right away because the Dock

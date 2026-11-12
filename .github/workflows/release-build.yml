@@ -105,7 +105,9 @@ jobs:
   macos:
     needs: verify
     environment: release-macos
-    runs-on: macos-latest
+    # The maintainer's Mac mini, registered as a self-hosted runner (see AGENTS.md): GitHub's macOS runners can
+    # queue for hours. Only tag pushes reach it; pull requests never run this workflow.
+    runs-on: [self-hosted, macOS, ARM64, folio-release]
     steps:
       - *checkout
       - *setup-node
@@ -132,7 +134,10 @@ jobs:
       - name: Packaged app starts (macOS)
         run: |
           codesign --verify --deep --verbose=2 release/mac-universal/Folio.app
-          release/mac-universal/Folio.app/Contents/MacOS/Folio > app.log 2>&1 &
+          # Hidden and with its own settings folder, so on the runner's Mac it shows no window, takes no focus, and
+          # neither touches nor is blocked by the Folio installed there.
+          release/mac-universal/Folio.app/Contents/MacOS/Folio --folio-startup-check \
+            --user-data-dir="$RUNNER_TEMP/folio-startup-check" > app.log 2>&1 &
           pid=$!
           sleep 20
           if ! kill -0 "$pid"; then cat app.log; exit 1; fi

@@ -18,6 +18,12 @@ both Windows and macOS.
 - The release must start at the latest `main` (the script checks). It pushes to `origin` (the fork) `main` by name, so it works from a
   worktree on any branch, e.g. `git worktree add ../folio-release origin/main`. If the run stops after the tag is
   pushed (a closed terminal, a restarted session), run `npm run release -- --publish-only` to finish it.
+- The macOS installer is built on the maintainer's Mac mini, a self-hosted runner labeled `folio-release`
+  (installed in `~/actions-runner/folio` as a login service), because GitHub's macOS runners can queue for hours. The
+  Mac must be on and logged in for a release to finish; the job waits until it is. Check it with
+  `gh api repos/Jaimendo99/folio/actions/runners`, and restart it with `./svc.sh start` in that folder. Keep the runner
+  to `release-build.yml`, which only tag pushes start: never give a pull-request workflow (`ci.yml`) its label, since
+  anyone could then run code on that Mac. Workflows on outside contributors' pull requests need approval.
 - **One release at a time.** Releases are built from committed, pushed code. If another session is working in the same
   checkout, coordinate: don't commit or release its uncommitted work, and use a separate `git worktree` for your own.
 
